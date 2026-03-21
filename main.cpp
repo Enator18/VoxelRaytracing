@@ -79,17 +79,17 @@ RayHit TraceRay(vec3 origin, vec3 dir)
 
     constexpr f32 INF = std::numeric_limits<f32>::infinity();
 
-    if (dir.y == 0 && dir.z == 0)
+    if (isnan(stepSize.x))
     {
-        stepSize = {1, INF, INF};
+        stepSize.x = INF;
     }
-    else if (dir.x == 0 && dir.z == 0)
+    if (isnan(stepSize.y))
     {
-        stepSize = {INF, 1, INF};
+        stepSize.y = INF;
     }
-    else if (dir.y == 0 && dir.z == 0)
+    if (isnan(stepSize.z))
     {
-        stepSize = {INF, INF, 1};
+        stepSize.z = INF;
     }
 
     vec3 rayLength;
@@ -180,8 +180,8 @@ void DrawView(u32 xStart, u32 yStart, u32 xEnd, u32 yEnd)
             if (hit.cell != 0)
             {
                 SDL_Surface* texture = textures[hit.cell];
-                u32 u = hit.uv.x * texture->w;
-                u32 v = hit.uv.y * texture->h;
+                u32 u = hit.uv.x * 16;
+                u32 v = hit.uv.y * 16;
 
                 u32* texel = (u32*)((u8*)texture->pixels + u * 4 + v * texture->pitch);
 
@@ -246,9 +246,9 @@ i32 main()
     SDL_SetWindowRelativeMouseMode(window, true);
 
     surface = SDL_GetWindowSurface(window);
-    textures[1] = LoadTexture("../textures/stone.png");
-    textures[2] = LoadTexture("../textures/cobblestone.png");
-    textures[3] = LoadTexture("../textures/dirt.png");
+    textures[1] = LoadTexture("../textures/4dstone.png");
+    textures[2] = LoadTexture("../textures/4ddirt.png");
+    textures[3] = LoadTexture("../textures/4dgrass.png");
 
     GenerateMap(0);
 
