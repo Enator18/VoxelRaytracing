@@ -4,6 +4,7 @@
 #include <limits>
 #include <unordered_set>
 #include <thread>
+#include <barrier>
 
 #include <SDL3/SDL.h>
 #include <glm/glm.hpp>
@@ -24,7 +25,7 @@ std::array<SDL_Surface*, 4> textures;
 
 f32 fov = 90;
 f32 mouseSensitivity = 0.25;
-f32 moveSpeed = 2;
+f32 moveSpeed = 5;
 vec3 playerPos = {MAP_SIZE / 2 + 0.5, MAP_SIZE / 2 + 0.5, MAP_SIZE / 2 + 0.5};
 vec2 playerRot = {0, 0};
 
@@ -160,7 +161,7 @@ RayHit TraceRay(vec3 origin, vec3 dir)
     }
 }
 
-void DrawViewThread(u32 xStart, u32 yStart, u32 xEnd, u32 yEnd)
+void DrawView(u32 xStart, u32 yStart, u32 xEnd, u32 yEnd)
 {
     f32 planeHeight = 2 * tan(radians(fov / 2));
     f32 planeWidth = planeHeight * WINDOW_WIDTH / WINDOW_HEIGHT;
@@ -194,30 +195,14 @@ void DrawViewThread(u32 xStart, u32 yStart, u32 xEnd, u32 yEnd)
     }
 }
 
-void DrawView()
+void DrawThread(u32 xStart, u32 yStart, u32 xEnd, u32 yEnd, std::barrier<>& startBarrier, std::barrier<>& endBarrier)
 {
-    u32 threadWidth = (WINDOW_WIDTH + hThreads - 1) / hThreads;
-    u32 threadHeight = (WINDOW_HEIGHT + vThreads - 1) / vThreads;
-    std::vector<std::thread> threads;
-    threads.reserve(hThreads * vThreads);
-    SDL_LockSurface(surface);
-    for (u32 x = 0; x < hThreads; x++)
+    while (true)
     {
-        for (u32 y = 0; y < vThreads; y++)
-        {
-            threads.emplace_back(DrawViewThread,
-                x * threadWidth, y * threadHeight,
-                min((x + 1) * threadWidth, WINDOW_WIDTH), min((y + 1) * threadHeight, WINDOW_HEIGHT));
-        }
+        startBarrier.arrive_and_wait();
+        DrawView(xStart, yStart, xEnd, yEnd);
+        endBarrier.arrive_and_wait();
     }
-
-    for (std::thread& thread : threads)
-    {
-        thread.join();
-    }
-
-    SDL_UnlockSurface(surface);
-    SDL_UpdateWindowSurface(window);
 }
 
 void GenerateMap(u64 seed)
@@ -267,6 +252,26 @@ i32 main()
 
     GenerateMap(0);
 
+    std::barrier<> startBarrier{hThreads * vThreads};
+    std::barrier<> endBarrier{hThreads * vThreads};
+
+    u32 threadWidth = (WINDOW_WIDTH + hThreads - 1) / hThreads;
+    u32 threadHeight = (WINDOW_HEIGHT + vThreads - 1) / vThreads;
+    for (u32 x = 0; x < hThreads; x++)
+    {
+        for (u32 y = 0; y < vThreads; y++)
+        {
+            if (x < hThreads - 1 || y < vThreads - 1)
+            {
+                std::thread thread{DrawThread,
+                x * threadWidth, y * threadHeight,
+                min((x + 1) * threadWidth, WINDOW_WIDTH), min((y + 1) * threadHeight, WINDOW_HEIGHT),
+                std::ref(startBarrier), std::ref(endBarrier)};
+                thread.detach();
+            }
+        }
+    }
+
     u64 then = SDL_GetPerformanceCounter();
 
     while (true)
@@ -275,7 +280,7 @@ i32 main()
         f32 delta = (f32)(now - then) / SDL_GetPerformanceFrequency();
         then = now;
 
-        std::cout << delta << std::endl;
+        // std::cout << delta << std::endl;
 
         SDL_Event event;
         while (SDL_PollEvent(&event))
@@ -339,6 +344,13 @@ i32 main()
 
         playerPos += moveDir * moveSpeed * delta;
 
-        DrawView();
+        SDL_LockSurface(surface);
+
+        startBarrier.arrive_and_wait();
+        DrawView(threadWidth * (hThreads - 1), threadHeight * (vThreads - 1), WINDOW_WIDTH, WINDOW_HEIGHT);
+        endBarrier.arrive_and_wait();
+
+        SDL_UnlockSurface(surface);
+        SDL_UpdateWindowSurface(window);
     }
 }
