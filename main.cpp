@@ -16,7 +16,7 @@ constexpr u32 WINDOW_HEIGHT = 1080;
 
 constexpr u32 MAP_SIZE = 32;
 
-std::array<u8, MAP_SIZE * MAP_SIZE * MAP_SIZE> map;
+std::array<u8, MAP_SIZE * MAP_SIZE * MAP_SIZE * MAP_SIZE> map;
 
 SDL_Window* window;
 SDL_Surface* surface;
@@ -25,56 +25,63 @@ std::array<SDL_Surface*, 4> textures;
 
 f32 fov = 90;
 f32 mouseSensitivity = 0.25;
-f32 moveSpeed = 5;
-vec3 playerPos = {MAP_SIZE / 2 + 0.5, MAP_SIZE / 2 + 0.5, MAP_SIZE / 2 + 0.5};
-vec2 playerRot = {0, 0};
+f32 moveSpeed = 2;
+vec4 playerPos = {MAP_SIZE / 2 + 0.5, MAP_SIZE / 2 + 0.5, MAP_SIZE / 2 + 0.5, MAP_SIZE / 2 + 0.5};
+vec4 playerRot = {0, 0, 0, 0};
 
 u32 hThreads = 8;
 u32 vThreads = 4;
 
 std::unordered_set<SDL_Keycode> keysDown;
+std::unordered_set<u8> mouseButtonsDown;
 
 inline bool InBounds(i32 val)
 {
     return val >= 0 && val < MAP_SIZE;
 }
 
-inline bool InBounds(ivec3 val)
+inline bool InBounds(ivec4 val)
 {
-    return InBounds(val.x) && InBounds(val.y) && InBounds(val.z);
+    return InBounds(val.x) && InBounds(val.y) && InBounds(val.z) && InBounds(val.w);
 }
 
-inline vec3 PlayerForwardDir()
+inline vec4 PlayerForwardDir()
 {
-    return {cos(playerRot.y) * cos(playerRot.x), sin(playerRot.y) * cos(playerRot.x), -sin(playerRot.x)};
+    return {cos(playerRot.y) * cos(playerRot.x), sin(playerRot.y) * cos(playerRot.x), -sin(playerRot.x), 0};
 }
 
-inline vec3 PlayerRightDir()
+inline vec4 PlayerRightDir()
 {
-    return {-sin(playerRot.y), cos(playerRot.y), 0};
+    return {-sin(playerRot.y), cos(playerRot.y), 0, 0};
 }
 
-inline vec3 PlayerUpDir()
+inline vec4 PlayerUpDir()
 {
-    return {cos(playerRot.y) * sin(playerRot.x), sin(playerRot.y) * sin(playerRot.x), cos(playerRot.x)};
+    return {cos(playerRot.y) * sin(playerRot.x), sin(playerRot.y) * sin(playerRot.x), cos(playerRot.x), 0};
+}
+
+inline vec4 PlayerAnaDir()
+{
+    return {0, 0, 0, 1};
 }
 
 struct RayHit
 {
     f32 distance;
-    vec2 uv;
+    vec3 uvt;
     u8 cell;
 };
 
-RayHit TraceRay(vec3 origin, vec3 dir)
+RayHit TraceRay(vec4 origin, vec4 dir)
 {
-    ivec3 step = sign(dir);
-    ivec3 gridPos = floor(origin);
-    vec3 stepSize =
+    ivec4 step = sign(dir);
+    ivec4 gridPos = floor(origin);
+    vec4 stepSize =
     {
-        sqrt(1 + pow(dir.y / dir.x, 2) + pow(dir.z / dir.x, 2)),
-        sqrt(1 + pow(dir.x / dir.y, 2) + pow(dir.z / dir.y, 2)),
-        sqrt(1 + pow(dir.x / dir.z, 2) + pow(dir.y / dir.z, 2))
+        sqrt(1 + pow(dir.y / dir.x, 2) + pow(dir.z / dir.x, 2) + pow(dir.w / dir.x, 2)),
+        sqrt(1 + pow(dir.x / dir.y, 2) + pow(dir.z / dir.y, 2) + pow(dir.w / dir.y, 2)),
+        sqrt(1 + pow(dir.x / dir.z, 2) + pow(dir.y / dir.z, 2) + pow(dir.w / dir.z, 2)),
+        sqrt(1 + pow(dir.x / dir.w, 2) + pow(dir.y / dir.w, 2) + pow(dir.z / dir.w, 2))
     };
 
     constexpr f32 INF = std::numeric_limits<f32>::infinity();
@@ -91,9 +98,13 @@ RayHit TraceRay(vec3 origin, vec3 dir)
     {
         stepSize.z = INF;
     }
+    if (isnan(stepSize.w))
+    {
+        stepSize.w = INF;
+    }
 
-    vec3 rayLength;
-    vec3 frac = origin - vec3{gridPos};
+    vec4 rayLength;
+    vec4 frac = origin - vec4{gridPos};
 
     if (dir.x < 0)
     {
@@ -119,32 +130,47 @@ RayHit TraceRay(vec3 origin, vec3 dir)
     {
         rayLength.z = (1 - frac.z) * stepSize.z;
     }
+    if (dir.w < 0)
+    {
+        rayLength.w = frac.w * stepSize.w;
+    }
+    else
+    {
+        rayLength.w = (1 - frac.w) * stepSize.w;
+    }
 
     f32 distance;
-    vec2 hitCoord;
+    vec3 hitCoord;
 
     while (true)
     {
-        if (rayLength.x < rayLength.y && rayLength.x < rayLength.z)
+        if (rayLength.x < rayLength.y && rayLength.x < rayLength.z && rayLength.x < rayLength.w)
         {
             gridPos.x += step.x;
             distance = rayLength.x;
-            hitCoord = {origin.y + distance * dir.y, origin.z + distance * dir.z};
+            hitCoord = {origin.y + distance * dir.y, origin.z + distance * dir.z, origin.w + distance * dir.w};
             rayLength.x += stepSize.x;
         }
-        else if (rayLength.y < rayLength.z)
+        else if (rayLength.y < rayLength.z && rayLength.y < rayLength.w)
         {
             gridPos.y += step.y;
             distance = rayLength.y;
-            hitCoord = {origin.x + distance * dir.x, origin.z + distance * dir.z};
+            hitCoord = {origin.x + distance * dir.x, origin.z + distance * dir.z, origin.w + distance * dir.w};
             rayLength.y += stepSize.y;
         }
-        else
+        else if (rayLength.z < rayLength.w)
         {
             gridPos.z += step.z;
             distance = rayLength.z;
-            hitCoord = {origin.x + distance * dir.x, origin.y + distance * dir.y};
+            hitCoord = {origin.x + distance * dir.x, origin.y + distance * dir.y, origin.w + distance * dir.w};
             rayLength.z += stepSize.z;
+        }
+        else
+        {
+            gridPos.w += step.w;
+            distance = rayLength.w;
+            hitCoord = {origin.x + distance * dir.x, origin.y + distance * dir.y, origin.z + distance * dir.z};
+            rayLength.w += stepSize.w;
         }
 
         if (!InBounds(gridPos))
@@ -152,11 +178,12 @@ RayHit TraceRay(vec3 origin, vec3 dir)
             return {};
         }
 
-        u8 cell = map[gridPos.z * MAP_SIZE * MAP_SIZE + gridPos.y * MAP_SIZE + gridPos.x];
+        u8 cell = map[gridPos.w * MAP_SIZE * MAP_SIZE * MAP_SIZE +
+            gridPos.z * MAP_SIZE * MAP_SIZE + gridPos.y * MAP_SIZE + gridPos.x];
         if (cell != 0)
         {
-            vec2 uv = fract(hitCoord);
-            return {distance, uv, cell};
+            vec3 uvt = fract(hitCoord);
+            return {distance, uvt, cell};
         }
     }
 }
@@ -165,14 +192,14 @@ void DrawView(u32 xStart, u32 yStart, u32 xEnd, u32 yEnd)
 {
     f32 planeHeight = 2 * tan(radians(fov / 2));
     f32 planeWidth = planeHeight * WINDOW_WIDTH / WINDOW_HEIGHT;
-    vec3 playerForward = PlayerForwardDir();
-    vec3 playerRight = PlayerRightDir();
-    vec3 playerUp = PlayerUpDir();
+    vec4 playerForward = PlayerForwardDir();
+    vec4 playerRight = PlayerRightDir();
+    vec4 playerUp = PlayerUpDir();
     for (u32 x = xStart; x < xEnd; x++)
     {
         for (u32 y = yStart; y < yEnd; y++)
         {
-            vec3 dir = normalize(playerForward + playerRight * (planeWidth * ((f32)x / WINDOW_WIDTH - 0.5f)) + playerUp * (-planeHeight * ((f32)y / WINDOW_HEIGHT - 0.5f)));
+            vec4 dir = normalize(playerForward + playerRight * (planeWidth * ((f32)x / WINDOW_WIDTH - 0.5f)) + playerUp * (-planeHeight * ((f32)y / WINDOW_HEIGHT - 0.5f)));
             RayHit hit = TraceRay(playerPos, dir);
 
             u32* pixel = (u32*)((u8*)surface->pixels + x * 4 + y * surface->pitch);
@@ -180,10 +207,11 @@ void DrawView(u32 xStart, u32 yStart, u32 xEnd, u32 yEnd)
             if (hit.cell != 0)
             {
                 SDL_Surface* texture = textures[hit.cell];
-                u32 u = hit.uv.x * 16;
-                u32 v = hit.uv.y * 16;
+                u32 u = hit.uvt.x * 16;
+                u32 v = hit.uvt.y * 16;
+                u32 t = hit.uvt.z * 16;
 
-                u32* texel = (u32*)((u8*)texture->pixels + u * 4 + v * texture->pitch);
+                u32* texel = (u32*)((u8*)texture->pixels + u * 4 + v * texture->pitch + t * 16 * texture->pitch);
 
                 *pixel = *texel;
             }
@@ -304,6 +332,11 @@ i32 main()
                 case SDL_EVENT_KEY_UP:
                     keysDown.erase(event.key.key);
                     break;
+                case SDL_EVENT_MOUSE_BUTTON_DOWN:
+                    mouseButtonsDown.insert(event.button.button);
+                    break;
+                case SDL_EVENT_MOUSE_BUTTON_UP:
+                    mouseButtonsDown.erase(event.button.button);
                 default:
                     break;
             }
@@ -318,7 +351,7 @@ i32 main()
 
         playerRot.x = clamp(playerRot.x, radians(-90.0f), radians(90.0f));
 
-        vec3 moveDir{};
+        vec4 moveDir{};
 
         if (keysDown.contains(SDLK_W))
         {
@@ -336,8 +369,16 @@ i32 main()
         {
             moveDir -= PlayerRightDir();
         }
+        if (keysDown.contains(SDLK_E))
+        {
+            moveDir += PlayerAnaDir();
+        }
+        if (keysDown.contains(SDLK_Q))
+        {
+            moveDir -= PlayerAnaDir();
+        }
 
-        if (moveDir.x != 0 && moveDir.y != 0)
+        if (moveDir.x != 0 || moveDir.y != 0 || moveDir.z != 0 || moveDir.w != 0)
         {
             moveDir = normalize(moveDir);
         }
