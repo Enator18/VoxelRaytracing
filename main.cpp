@@ -79,17 +79,17 @@ RayHit TraceRay(vec3 origin, vec3 dir)
 
     constexpr f32 INF = std::numeric_limits<f32>::infinity();
 
-    if (dir.y == 0 && dir.z == 0)
+    if (isnan(stepSize.x))
     {
-        stepSize = {1, INF, INF};
+        stepSize.x = INF;
     }
-    else if (dir.x == 0 && dir.z == 0)
+    if (isnan(stepSize.y))
     {
-        stepSize = {INF, 1, INF};
+        stepSize.y = INF;
     }
-    else if (dir.y == 0 && dir.z == 0)
+    if (isnan(stepSize.z))
     {
-        stepSize = {INF, INF, 1};
+        stepSize.z = INF;
     }
 
     vec3 rayLength;
