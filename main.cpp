@@ -225,7 +225,7 @@ void DrawViews(u32 startTile)
     }
 }
 
-void DrawThread(u32 startTile)
+[[noreturn]] void DrawThread(u32 startTile)
 {
     while (true)
     {
