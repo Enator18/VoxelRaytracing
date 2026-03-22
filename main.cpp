@@ -24,7 +24,7 @@ f32 fov = 90;
 f32 mouseSensitivity = 0.25;
 f32 moveSpeed = 5;
 vec3 playerPos = {MAP_SIZE / 2 + 0.5, MAP_SIZE / 2 + 0.5, MAP_SIZE / 2 + 0.5};
-vec2 playerRot = {0, 0};
+vec2 playerRot;
 
 std::unordered_set<SDL_Keycode> keysDown;
 
@@ -179,19 +179,19 @@ i32 main()
 
         if (keysDown.contains(SDLK_W))
         {
-            moveDir += PlayerForwardDir();
+            moveDir += vec3{1, 0, 0};
         }
         if (keysDown.contains(SDLK_S))
         {
-            moveDir -= PlayerForwardDir();
+            moveDir += vec3{-1, 0, 0};
         }
         if (keysDown.contains(SDLK_D))
         {
-            moveDir += PlayerRightDir();
+            moveDir += vec3{0, 1, 0};
         }
         if (keysDown.contains(SDLK_A))
         {
-            moveDir -= PlayerRightDir();
+            moveDir += vec3{0, -1, 0};
         }
 
         if (moveDir.x != 0 && moveDir.y != 0)
@@ -199,7 +199,7 @@ i32 main()
             moveDir = normalize(moveDir);
         }
 
-        playerPos += moveDir * moveSpeed * delta;
+        playerPos += (PlayerRotation() * moveDir) * moveSpeed * delta;
 
         DrawViewSoft();
     }

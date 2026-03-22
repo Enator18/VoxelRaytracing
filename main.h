@@ -26,17 +26,20 @@ inline bool InBounds(ivec3 val)
     return InBounds(val.x) && InBounds(val.y) && InBounds(val.z);
 }
 
-inline vec3 PlayerForwardDir()
+inline mat3 PlayerRotation()
 {
-    return {cos(playerRot.y) * cos(playerRot.x), sin(playerRot.y) * cos(playerRot.x), -sin(playerRot.x)};
-}
+    mat3 horizontal
+    {
+        {cos(playerRot.y), sin(playerRot.y), 0},
+        {-sin(playerRot.y), cos(playerRot.y), 0},
+        {0, 0, 1}
+    };
 
-inline vec3 PlayerRightDir()
-{
-    return {-sin(playerRot.y), cos(playerRot.y), 0};
-}
-
-inline vec3 PlayerUpDir()
-{
-    return {cos(playerRot.y) * sin(playerRot.x), sin(playerRot.y) * sin(playerRot.x), cos(playerRot.x)};
+    mat3 vertical
+    {
+        {cos(playerRot.x), 0, -sin(playerRot.x)},
+        {0, 1, 0},
+        {sin(playerRot.x), 0, cos(playerRot.x)}
+    };
+    return horizontal * vertical;
 }

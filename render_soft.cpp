@@ -151,14 +151,12 @@ void DrawTile(RenderTile tile)
 {
     f32 planeHeight = 2 * tan(radians(fov / 2));
     f32 planeWidth = planeHeight * WINDOW_WIDTH / WINDOW_HEIGHT;
-    vec3 playerForward = PlayerForwardDir();
-    vec3 playerRight = PlayerRightDir();
-    vec3 playerUp = PlayerUpDir();
+    mat3 playerRotMat = PlayerRotation();
     for (u32 x = tile.xStart; x < tile.xEnd; x++)
     {
         for (u32 y = tile.yStart; y < tile.yEnd; y++)
         {
-            vec3 dir = normalize(playerForward + playerRight * (planeWidth * ((f32)x / WINDOW_WIDTH - 0.5f)) + playerUp * (-planeHeight * ((f32)y / WINDOW_HEIGHT - 0.5f)));
+            vec3 dir = playerRotMat * normalize(vec3{1, planeWidth * ((f32)x / WINDOW_WIDTH - 0.5f), -planeHeight * ((f32)y / WINDOW_HEIGHT - 0.5f)});
             RayHit hit = TraceRay(playerPos, dir);
 
             u32* pixel = (u32*)((u8*)surface->pixels + x * 4 + y * surface->pitch);
