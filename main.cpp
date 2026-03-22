@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <thread>
 #include <barrier>
+#include <atomic>
 
 #include <SDL3/SDL.h>
 #include <glm/glm.hpp>
@@ -34,8 +35,22 @@ f32 moveSpeed = 5;
 vec3 playerPos = {MAP_SIZE / 2 + 0.5, MAP_SIZE / 2 + 0.5, MAP_SIZE / 2 + 0.5};
 vec2 playerRot = {0, 0};
 
-u32 hThreads = 1;
-u32 vThreads = 32;
+u32 numThreads = std::thread::hardware_concurrency();
+u32 tileSize = 32;
+
+struct RenderTile
+{
+    u32 xStart;
+    u32 yStart;
+    u32 xEnd;
+    u32 yEnd;
+};
+
+std::vector<RenderTile> tiles;
+u32 tileCount;
+std::atomic<u32> nextTile;
+std::barrier<> startBarrier{numThreads};
+std::barrier<> endBarrier{numThreads};
 
 std::unordered_set<SDL_Keycode> keysDown;
 
@@ -166,16 +181,16 @@ RayHit TraceRay(vec3 origin, vec3 dir)
     }
 }
 
-void DrawView(u32 xStart, u32 yStart, u32 xEnd, u32 yEnd)
+void DrawView(RenderTile tile)
 {
     f32 planeHeight = 2 * tan(radians(fov / 2));
     f32 planeWidth = planeHeight * WINDOW_WIDTH / WINDOW_HEIGHT;
     vec3 playerForward = PlayerForwardDir();
     vec3 playerRight = PlayerRightDir();
     vec3 playerUp = PlayerUpDir();
-    for (u32 x = xStart; x < xEnd; x++)
+    for (u32 x = tile.xStart; x < tile.xEnd; x++)
     {
-        for (u32 y = yStart; y < yEnd; y++)
+        for (u32 y = tile.yStart; y < tile.yEnd; y++)
         {
             vec3 dir = normalize(playerForward + playerRight * (planeWidth * ((f32)x / WINDOW_WIDTH - 0.5f)) + playerUp * (-planeHeight * ((f32)y / WINDOW_HEIGHT - 0.5f)));
             RayHit hit = TraceRay(playerPos, dir);
@@ -200,12 +215,22 @@ void DrawView(u32 xStart, u32 yStart, u32 xEnd, u32 yEnd)
     }
 }
 
-void DrawThread(u32 xStart, u32 yStart, u32 xEnd, u32 yEnd, std::barrier<>& startBarrier, std::barrier<>& endBarrier)
+void DrawViews(u32 startTile)
+{
+    u32 tile = startTile;
+    while (tile < tileCount)
+    {
+        DrawView(tiles[tile]);
+        tile = nextTile++;
+    }
+}
+
+void DrawThread(u32 startTile)
 {
     while (true)
     {
         startBarrier.arrive_and_wait();
-        DrawView(xStart, yStart, xEnd, yEnd);
+        DrawViews(startTile);
         endBarrier.arrive_and_wait();
     }
 }
@@ -323,36 +348,35 @@ i32 main()
 
     GenerateMap(8);
 
-    std::barrier<> startBarrier{hThreads * vThreads};
-    std::barrier<> endBarrier{hThreads * vThreads};
-
-    u32 threadWidth = (WINDOW_WIDTH + hThreads - 1) / hThreads;
-    u32 threadHeight = (WINDOW_HEIGHT + vThreads - 1) / vThreads;
-    for (u32 x = 0; x < hThreads; x++)
+    u32 hTiles = (WINDOW_WIDTH + tileSize - 1) / tileSize;
+    u32 vTiles = (WINDOW_HEIGHT + tileSize - 1) / tileSize;
+    for (u32 x = 0; x < hTiles; x++)
     {
-        for (u32 y = 0; y < vThreads; y++)
+        for (u32 y = 0; y < vTiles; y++)
         {
-            if (x < hThreads - 1 || y < vThreads - 1)
-            {
-                std::thread thread{DrawThread,
-                x * threadWidth, y * threadHeight,
-                min((x + 1) * threadWidth, WINDOW_WIDTH), min((y + 1) * threadHeight, WINDOW_HEIGHT),
-                std::ref(startBarrier), std::ref(endBarrier)};
-                thread.detach();
-            }
+            tiles.push_back({
+                x * tileSize, y * tileSize,
+                min((x + 1) * tileSize, WINDOW_WIDTH),
+                min((y + 1) * tileSize, WINDOW_HEIGHT)});
         }
+    }
+    tileCount = hTiles * vTiles;
+
+    for (u32 i = 1; i < numThreads; i++)
+    {
+        std::thread thread{DrawThread, i};
+        thread.detach();
     }
 
     u64 then = SDL_GetPerformanceCounter();
 
-    u64 profileStart = SDL_GetPerformanceCounter();
-    u64 frameCount = 0;
-
     while (true)
     {
         u64 now = SDL_GetPerformanceCounter();
-        f64 delta = (f64)(now - then) / SDL_GetPerformanceFrequency();
+        f32 delta = (f64)(now - then) / SDL_GetPerformanceFrequency();
         then = now;
+
+        std::cout << (int)(1 / delta) << std::endl;
 
         SDL_Event event;
         while (SDL_PollEvent(&event))
@@ -385,49 +409,43 @@ i32 main()
         f32 mouseY;
         SDL_GetRelativeMouseState(&mouseX, &mouseY);
 
-        // playerRot.y += radians(mouseX * mouseSensitivity);
-        // playerRot.x += radians(mouseY * mouseSensitivity);
-        //
-        // playerRot.x = clamp(playerRot.x, radians(-90.0f), radians(90.0f));
-        //
-        // vec3 moveDir{};
-        //
-        // if (keysDown.contains(SDLK_W))
-        // {
-        //     moveDir += PlayerForwardDir();
-        // }
-        // if (keysDown.contains(SDLK_S))
-        // {
-        //     moveDir -= PlayerForwardDir();
-        // }
-        // if (keysDown.contains(SDLK_D))
-        // {
-        //     moveDir += PlayerRightDir();
-        // }
-        // if (keysDown.contains(SDLK_A))
-        // {
-        //     moveDir -= PlayerRightDir();
-        // }
-        //
-        // if (moveDir.x != 0 && moveDir.y != 0)
-        // {
-        //     moveDir = normalize(moveDir);
-        // }
-        //
-        // playerPos += moveDir * moveSpeed * delta;
+        playerRot.y += radians(mouseX * mouseSensitivity);
+        playerRot.x += radians(mouseY * mouseSensitivity);
 
-        frameCount++;
-        if (frameCount > 1000)
+        playerRot.x = clamp(playerRot.x, radians(-90.0f), radians(90.0f));
+
+        vec3 moveDir{};
+
+        if (keysDown.contains(SDLK_W))
         {
-            f64 time = (f64)(SDL_GetPerformanceCounter() - profileStart) / SDL_GetPerformanceFrequency();
-            std::cout << time << std::endl;
-            return 0;
+            moveDir += PlayerForwardDir();
         }
+        if (keysDown.contains(SDLK_S))
+        {
+            moveDir -= PlayerForwardDir();
+        }
+        if (keysDown.contains(SDLK_D))
+        {
+            moveDir += PlayerRightDir();
+        }
+        if (keysDown.contains(SDLK_A))
+        {
+            moveDir -= PlayerRightDir();
+        }
+
+        if (moveDir.x != 0 && moveDir.y != 0)
+        {
+            moveDir = normalize(moveDir);
+        }
+
+        playerPos += moveDir * moveSpeed * delta;
 
         SDL_LockSurface(surface);
 
+        nextTile = numThreads;
+
         startBarrier.arrive_and_wait();
-        DrawView(threadWidth * (hThreads - 1), threadHeight * (vThreads - 1), WINDOW_WIDTH, WINDOW_HEIGHT);
+        DrawViews(0);
         endBarrier.arrive_and_wait();
 
         SDL_UnlockSurface(surface);
