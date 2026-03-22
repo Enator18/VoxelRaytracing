@@ -27,7 +27,7 @@ f32 fov = 90;
 f32 mouseSensitivity = 0.25;
 f32 moveSpeed = 2;
 vec4 playerPos = {MAP_SIZE / 2 + 0.5, MAP_SIZE / 2 + 0.5, MAP_SIZE / 2 + 0.5, MAP_SIZE / 2 + 0.5};
-vec4 playerRot = {0, 0, 0, 0};
+vec4 playerRot = {0, 0, 0, 0}; // XY, XZ, YW, XW
 
 u32 hThreads = 8;
 u32 vThreads = 4;
@@ -47,17 +47,17 @@ inline bool InBounds(ivec4 val)
 
 inline vec4 PlayerForwardDir()
 {
-    return {cos(playerRot.y) * cos(playerRot.x), sin(playerRot.y) * cos(playerRot.x), -sin(playerRot.x), 0};
+    return {cos(playerRot.x) * cos(playerRot.y), sin(playerRot.x) * cos(playerRot.y), -sin(playerRot.y), 0};
 }
 
 inline vec4 PlayerRightDir()
 {
-    return {-sin(playerRot.y), cos(playerRot.y), 0, 0};
+    return {-sin(playerRot.x), cos(playerRot.x), 0, 0};
 }
 
 inline vec4 PlayerUpDir()
 {
-    return {cos(playerRot.y) * sin(playerRot.x), sin(playerRot.y) * sin(playerRot.x), cos(playerRot.x), 0};
+    return {cos(playerRot.x) * sin(playerRot.y), sin(playerRot.x) * sin(playerRot.y), cos(playerRot.y), 0};
 }
 
 inline vec4 PlayerAnaDir()
@@ -346,10 +346,10 @@ i32 main()
         f32 mouseY;
         SDL_GetRelativeMouseState(&mouseX, &mouseY);
 
-        playerRot.y += radians(mouseX * mouseSensitivity);
-        playerRot.x += radians(mouseY * mouseSensitivity);
+        playerRot.x += radians(mouseX * mouseSensitivity);
+        playerRot.y += radians(mouseY * mouseSensitivity);
 
-        playerRot.x = clamp(playerRot.x, radians(-90.0f), radians(90.0f));
+        playerRot.y = clamp(playerRot.y, radians(-90.0f), radians(90.0f));
 
         vec4 moveDir{};
 
