@@ -339,6 +339,11 @@ i32 main()
         return 1;
     }
 
+    if (numThreads == 0)
+    {
+        numThreads = 1;
+    }
+
     SDL_SetWindowRelativeMouseMode(window, true);
 
     surface = SDL_GetWindowSurface(window);
