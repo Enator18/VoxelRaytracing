@@ -45,19 +45,20 @@ SDL_Surface* LoadTexture(const char* path)
 struct RayHit
 {
     f32 distance;
-    vec2 uv;
+    vec3 uvt;
     u8 cell;
 };
 
-RayHit TraceRay(vec3 origin, vec3 dir)
+RayHit TraceRay(vec4 origin, vec4 dir)
 {
-    ivec3 step = sign(dir);
-    ivec3 gridPos = floor(origin);
-    vec3 stepSize =
+    ivec4 step = sign(dir);
+    ivec4 gridPos = floor(origin);
+    vec4 stepSize =
     {
-        sqrt(1 + pow(dir.y / dir.x, 2) + pow(dir.z / dir.x, 2)),
-        sqrt(1 + pow(dir.x / dir.y, 2) + pow(dir.z / dir.y, 2)),
-        sqrt(1 + pow(dir.x / dir.z, 2) + pow(dir.y / dir.z, 2))
+        sqrt(1 + pow(dir.y / dir.x, 2) + pow(dir.z / dir.x, 2) + pow(dir.w / dir.x, 2)),
+        sqrt(1 + pow(dir.x / dir.y, 2) + pow(dir.z / dir.y, 2) + pow(dir.w / dir.y, 2)),
+        sqrt(1 + pow(dir.x / dir.z, 2) + pow(dir.y / dir.z, 2) + pow(dir.w / dir.z, 2)),
+        sqrt(1 + pow(dir.x / dir.w, 2) + pow(dir.y / dir.w, 2) + pow(dir.z / dir.w, 2))
     };
 
     constexpr f32 INF = std::numeric_limits<f32>::infinity();
@@ -74,9 +75,13 @@ RayHit TraceRay(vec3 origin, vec3 dir)
     {
         stepSize.z = INF;
     }
+    if (isnan(stepSize.w))
+    {
+        stepSize.w = INF;
+    }
 
-    vec3 rayLength;
-    vec3 frac = origin - vec3{gridPos};
+    vec4 rayLength;
+    vec4 frac = origin - vec4{gridPos};
 
     if (dir.x < 0)
     {
@@ -102,34 +107,50 @@ RayHit TraceRay(vec3 origin, vec3 dir)
     {
         rayLength.z = (1 - frac.z) * stepSize.z;
     }
+    if (dir.w < 0)
+    {
+        rayLength.w = frac.w * stepSize.w;
+    }
+    else
+    {
+        rayLength.w = (1 - frac.w) * stepSize.w;
+    }
 
     f32 distance;
-    vec2 hitCoord;
+    vec3 hitCoord;
 
-    bool inBlock = !InBounds(gridPos) || map[gridPos.z * MAP_SIZE * MAP_SIZE + gridPos.y * MAP_SIZE + gridPos.x] != 0;
+    bool inBlock = !InBounds(gridPos) || map[gridPos.w * MAP_SIZE * MAP_SIZE * MAP_SIZE +
+        gridPos.z * MAP_SIZE * MAP_SIZE + gridPos.y * MAP_SIZE + gridPos.x] != 0;
 
     while (true)
     {
-        if (rayLength.x < rayLength.y && rayLength.x < rayLength.z)
+        if (rayLength.x < rayLength.y && rayLength.x < rayLength.z && rayLength.x < rayLength.w)
         {
             gridPos.x += step.x;
             distance = rayLength.x;
-            hitCoord = {origin.y + distance * dir.y, origin.z + distance * dir.z};
+            hitCoord = {origin.y + distance * dir.y, origin.z + distance * dir.z, origin.w + distance * dir.w};
             rayLength.x += stepSize.x;
         }
-        else if (rayLength.y < rayLength.z)
+        else if (rayLength.y < rayLength.z && rayLength.y < rayLength.w)
         {
             gridPos.y += step.y;
             distance = rayLength.y;
-            hitCoord = {origin.x + distance * dir.x, origin.z + distance * dir.z};
+            hitCoord = {origin.x + distance * dir.x, origin.z + distance * dir.z, origin.w + distance * dir.w};
             rayLength.y += stepSize.y;
         }
-        else
+        else if (rayLength.z < rayLength.w)
         {
             gridPos.z += step.z;
             distance = rayLength.z;
-            hitCoord = {origin.x + distance * dir.x, origin.y + distance * dir.y};
+            hitCoord = {origin.x + distance * dir.x, origin.y + distance * dir.y, origin.w + distance * dir.w};
             rayLength.z += stepSize.z;
+        }
+        else
+        {
+            gridPos.w += step.w;
+            distance = rayLength.w;
+            hitCoord = {origin.x + distance * dir.x, origin.y + distance * dir.y, origin.z + distance * dir.z};
+            rayLength.w += stepSize.w;
         }
 
         if (!InBounds(gridPos))
@@ -137,11 +158,12 @@ RayHit TraceRay(vec3 origin, vec3 dir)
             return {};
         }
 
-        u8 cell = map[gridPos.z * MAP_SIZE * MAP_SIZE + gridPos.y * MAP_SIZE + gridPos.x];
+        u8 cell = map[gridPos.w * MAP_SIZE * MAP_SIZE * MAP_SIZE +
+            gridPos.z * MAP_SIZE * MAP_SIZE + gridPos.y * MAP_SIZE + gridPos.x];
         if (cell != 0 && !inBlock)
         {
-            vec2 uv = fract(hitCoord);
-            return {distance, uv, cell};
+            vec3 uvt = fract(hitCoord);
+            return {distance, uvt, cell};
         }
         inBlock = cell != 0;
     }
@@ -151,12 +173,12 @@ void DrawTile(RenderTile tile)
 {
     f32 planeHeight = 2 * tan(radians(fov / 2));
     f32 planeWidth = planeHeight * WINDOW_WIDTH / WINDOW_HEIGHT;
-    mat3 playerRotMat = PlayerRotation();
+    mat4 playerRotMat = PlayerRotation();
     for (u32 x = tile.xStart; x < tile.xEnd; x++)
     {
         for (u32 y = tile.yStart; y < tile.yEnd; y++)
         {
-            vec3 dir = playerRotMat * normalize(vec3{1, planeWidth * ((f32)x / WINDOW_WIDTH - 0.5f), -planeHeight * ((f32)y / WINDOW_HEIGHT - 0.5f)});
+            vec4 dir = playerRotMat * normalize(vec4{1, planeWidth * ((f32)x / WINDOW_WIDTH - 0.5f), -planeHeight * ((f32)y / WINDOW_HEIGHT - 0.5f), 0});
             RayHit hit = TraceRay(playerPos, dir);
 
             u32* pixel = (u32*)((u8*)surface->pixels + x * 4 + y * surface->pitch);
@@ -164,10 +186,11 @@ void DrawTile(RenderTile tile)
             if (hit.cell != 0)
             {
                 SDL_Surface* texture = textures[hit.cell];
-                u32 u = hit.uv.x * texture->w;
-                u32 v = hit.uv.y * texture->h;
+                u32 u = hit.uvt.x * 16;
+                u32 v = hit.uvt.y * 16;
+                u32 t = hit.uvt.z * 16;
 
-                u32* texel = (u32*)((u8*)texture->pixels + u * 4 + v * texture->pitch);
+                u32* texel = (u32*)((u8*)texture->pixels + u * 4 + v * texture->pitch + t * 16 * texture->pitch);
 
                 *pixel = *texel;
             }
@@ -202,9 +225,9 @@ void DrawTiles(u32 startTile)
 void RenderInitSoft()
 {
     surface = SDL_GetWindowSurface(window);
-    textures[1] = LoadTexture("../textures/stone.png");
-    textures[2] = LoadTexture("../textures/cobblestone.png");
-    textures[3] = LoadTexture("../textures/dirt.png");
+    textures[1] = LoadTexture("../textures/4dstone.png");
+    textures[2] = LoadTexture("../textures/4ddirt.png");
+    textures[3] = LoadTexture("../textures/4dgrass.png");
 
     u32 hTiles = (WINDOW_WIDTH + tileSize - 1) / tileSize;
     u32 vTiles = (WINDOW_HEIGHT + tileSize - 1) / tileSize;

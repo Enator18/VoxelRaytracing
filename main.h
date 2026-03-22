@@ -7,39 +7,42 @@ using namespace glm;
 constexpr u32 WINDOW_WIDTH = 1920;
 constexpr u32 WINDOW_HEIGHT = 1080;
 
-constexpr u32 MAP_SIZE = 64;
+constexpr u32 MAP_SIZE = 32;
 
-extern std::array<u8, MAP_SIZE * MAP_SIZE * MAP_SIZE> map;
+extern std::array<u8, MAP_SIZE * MAP_SIZE * MAP_SIZE * MAP_SIZE> map;
 extern SDL_Window* window;
 
 extern f32 fov;
-extern vec3 playerPos;
-extern vec2 playerRot;
+extern vec4 playerPos;
+extern mat4 playerRot;
+extern f32 playerPitch;
 
 inline bool InBounds(i32 val)
 {
     return val >= 0 && val < MAP_SIZE;
 }
 
-inline bool InBounds(ivec3 val)
+inline bool InBounds(ivec4 val)
 {
-    return InBounds(val.x) && InBounds(val.y) && InBounds(val.z);
+    return InBounds(val.x) && InBounds(val.y) && InBounds(val.z) && InBounds(val.w);
 }
 
-inline mat3 PlayerRotation()
+inline mat4 PlayerRotation()
 {
-    mat3 horizontal
-    {
-        {cos(playerRot.y), sin(playerRot.y), 0},
-        {-sin(playerRot.y), cos(playerRot.y), 0},
-        {0, 0, 1}
-    };
+    // mat4 horizontal
+    // {
+    //     {cos(playerRot.y), sin(playerRot.y), 0, 0},
+    //     {-sin(playerRot.y), cos(playerRot.y), 0, 0},
+    //     {0, 0, 1, 0},
+    //     {0, 0, 0, 1}
+    // };
 
-    mat3 vertical
+    mat4 vertical
     {
-        {cos(playerRot.x), 0, -sin(playerRot.x)},
-        {0, 1, 0},
-        {sin(playerRot.x), 0, cos(playerRot.x)}
+        {cos(playerPitch), 0, -sin(playerPitch), 0},
+        {0, 1, 0, 0},
+        {sin(playerPitch), 0, cos(playerPitch), 0},
+        {0, 0, 0, 1}
     };
-    return horizontal * vertical;
+    return playerRot * vertical;
 }
