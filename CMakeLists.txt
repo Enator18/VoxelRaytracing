@@ -12,6 +12,6 @@ set(SDL_SHARED OFF)
 CPMAddPackage("gh:libsdl-org/SDL#release-3.4.2")
 CPMAddPackage("gh:g-truc/glm#1.0.1")
 
-add_executable(VoxelRaytracing main.cpp)
+add_executable(VoxelRaytracing main.cpp render_soft.cpp)
 
 target_link_libraries(VoxelRaytracing PRIVATE SDL3::SDL3 glm::glm)
