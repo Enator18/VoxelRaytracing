@@ -106,8 +106,6 @@ RayHit TraceRay(vec3 origin, vec3 dir)
     f32 distance;
     vec2 hitCoord;
 
-    bool inBlock = !InBounds(gridPos) || map[gridPos.z * MAP_SIZE * MAP_SIZE + gridPos.y * MAP_SIZE + gridPos.x] != 0;
-
     while (true)
     {
         if (rayLength.x < rayLength.y && rayLength.x < rayLength.z)
@@ -138,12 +136,11 @@ RayHit TraceRay(vec3 origin, vec3 dir)
         }
 
         u8 cell = map[gridPos.z * MAP_SIZE * MAP_SIZE + gridPos.y * MAP_SIZE + gridPos.x];
-        if (cell != 0 && !inBlock)
+        if (cell != 0)
         {
             vec2 uv = fract(hitCoord);
             return {distance, uv, cell};
         }
-        inBlock = cell != 0;
     }
 }
 
