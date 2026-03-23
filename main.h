@@ -29,14 +29,6 @@ inline bool InBounds(ivec4 val)
 
 inline mat4 PlayerRotation()
 {
-    // mat4 horizontal
-    // {
-    //     {cos(playerRot.y), sin(playerRot.y), 0, 0},
-    //     {-sin(playerRot.y), cos(playerRot.y), 0, 0},
-    //     {0, 0, 1, 0},
-    //     {0, 0, 0, 1}
-    // };
-
     mat4 vertical
     {
         {cos(playerPitch), 0, -sin(playerPitch), 0},
