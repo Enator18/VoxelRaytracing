@@ -161,7 +161,7 @@ i32 main()
         f32 delta = (f64)(now - then) / SDL_GetPerformanceFrequency();
         then = now;
 
-        // std::cout << (int)(1 / delta) << std::endl;
+        std::cout << (int)(1 / delta) << std::endl;
 
         SDL_Event event;
         while (SDL_PollEvent(&event))
