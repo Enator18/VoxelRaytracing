@@ -126,6 +126,9 @@ i32 main()
     SDL_SetWindowRelativeMouseMode(window, true);
 
     RenderInitSoft();
+    LoadTextureSoft("../textures/stone.png", 1);
+    LoadTextureSoft("../textures/cobblestone.png", 2);
+    LoadTextureSoft("../textures/dirt.png", 3);
 
     GenerateMap(0);
 
