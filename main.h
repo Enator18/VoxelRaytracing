@@ -28,18 +28,10 @@ inline bool InBounds(ivec3 val)
 
 inline mat3 PlayerRotation()
 {
-    mat3 horizontal
+    return
     {
-        {cos(playerRot.y), sin(playerRot.y), 0},
+        {cos(playerRot.y) * cos(playerRot.x), sin(playerRot.y) * cos(playerRot.x), -sin(playerRot.x)},
         {-sin(playerRot.y), cos(playerRot.y), 0},
-        {0, 0, 1}
+        {cos(playerRot.y) * sin(playerRot.x), sin(playerRot.y) * sin(playerRot.x), cos(playerRot.x)}
     };
-
-    mat3 vertical
-    {
-        {cos(playerRot.x), 0, -sin(playerRot.x)},
-        {0, 1, 0},
-        {sin(playerRot.x), 0, cos(playerRot.x)}
-    };
-    return horizontal * vertical;
 }
