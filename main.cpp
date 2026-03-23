@@ -161,7 +161,7 @@ i32 main()
         f32 delta = (f64)(now - then) / SDL_GetPerformanceFrequency();
         then = now;
 
-        std::cout << (int)(1 / delta) << std::endl;
+        // std::cout << (int)(1 / delta) << std::endl;
 
         SDL_Event event;
         while (SDL_PollEvent(&event))
@@ -208,23 +208,20 @@ i32 main()
 
         if (leftClick)
         {
-            f32 wRot = radians(mouseY * mouseSensitivity);
-            f32 twirlRot = radians(mouseX * mouseSensitivity);
-            mat4 wMat
+            vec2 rotDir = {mouseX, mouseY};
+            f32 rotAngle = radians(length(rotDir) * mouseSensitivity);
+            if (rotDir.x != 0 || rotDir.y != 0)
             {
-                {cos(wRot), 0, 0, -sin(wRot)},
-                {0, 1, 0, 0},
-                {0, 0, 1, 0},
-                {sin(wRot), 0, 0, cos(wRot)}
-            };
-            mat4 twirlMat
-            {
-                {1, 0, 0, 0},
-                {0, cos(twirlRot), 0, -sin(twirlRot)},
-                {0, 0, 1, 0},
-                {0, sin(twirlRot), 0, cos(twirlRot)}
-            };
-            playerRot = playerRot * wMat * twirlMat;
+                rotDir = normalize(rotDir);
+                mat4 rotMat
+                {
+                    {rotDir.x * rotDir.x * (1 - cos(rotAngle)) + cos(rotAngle), rotDir.x * rotDir.y * (cos(rotAngle) - 1), 0, rotDir.y * -sin(rotAngle)},
+                    {rotDir.x * rotDir.y * (cos(rotAngle) - 1), rotDir.y * rotDir.y * (1 - cos(rotAngle)) + cos(rotAngle), 0, rotDir.x * -sin(rotAngle)},
+                    {0, 0, 1, 0},
+                    {rotDir.y * sin(rotAngle), rotDir.x * sin(rotAngle), 0, cos(rotAngle)}
+                };
+                playerRot = playerRot * rotMat;
+            }
         }
         else
         {
