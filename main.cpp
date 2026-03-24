@@ -23,7 +23,7 @@ SDL_Window* window;
 f32 fov = 90;
 f32 mouseSensitivity = 0.25;
 f32 moveSpeed = 5;
-vec3 playerPos = {MAP_SIZE / 2 + 0.5, MAP_SIZE / 2 + 0.5, MAP_SIZE / 2 + 0.5};
+vec3 playerPos = {MAP_SIZE / 2 + 0.5, MAP_SIZE / 2 + 0.5, MAP_SIZE * 0.75 + 0.5};
 vec2 playerRot;
 
 std::unordered_set<SDL_Keycode> keysDown;

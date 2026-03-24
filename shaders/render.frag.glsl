@@ -4,9 +4,9 @@
 #extension GL_EXT_buffer_reference : require
 #extension GL_EXT_nonuniform_qualifier : require
 
-#define MAP_SIZE 64
+#define MAP_SIZE 128
 
-layout(location = 0) in vec2 planePos;
+layout(location = 0) in vec3 rayDir;
 layout(location = 0) out vec4 outFragColor;
 
 layout (buffer_reference, scalar) readonly buffer MapBuffer
@@ -16,8 +16,8 @@ layout (buffer_reference, scalar) readonly buffer MapBuffer
 
 layout (push_constant, scalar) uniform PushConstants
 {
-    layout (offset = 8) mat3 playerRot;
-    vec3 playerPos;
+//    layout (offset = 8) mat3 playerRot;
+    layout (offset = 44) vec3 playerPos;
     MapBuffer mapBuffer;
 } pcs;
 
@@ -133,15 +133,38 @@ void TraceRay(vec3 origin, vec3 dir, out vec2 uv, out uint cell, out vec3 hitPos
     }
 }
 
+float RandomValue(inout uint seed)
+{
+    seed = seed * 747796405 + 2891336453;
+    uint result = ((seed >> ((seed >> 28) + 4)) ^ seed) * 277803737;
+    result = (result >> 22) ^ result;
+    return result / 4294967295.0;
+}
+
+float RandomNormalValue(inout uint seed)
+{
+    float theta = 2 * 3.1415926 * RandomValue(seed);
+    float rho = sqrt(-2 * log(RandomValue(seed)));
+    return rho * cos(theta);
+}
+
+vec3 RandomDirection(inout uint seed)
+{
+    float x = RandomNormalValue(seed);
+    float y = RandomNormalValue(seed);
+    float z = RandomNormalValue(seed);
+    return normalize(vec3(x, y, z));
+}
+
 void main()
 {
     vec2 uv;
     uint cell;
     vec3 hitPos;
     vec3 normal;
-    vec3 rayDir = pcs.playerRot * normalize(vec3(1, planePos));
-    vec3 shadowDir = normalize(vec3(2, 4, 6));
-    TraceRay(pcs.playerPos, rayDir, uv, cell, hitPos, normal);
+    vec3 rayDirNorm = normalize(rayDir);
+    vec3 shadowDir = normalize(vec3(2, 3, 4));
+    TraceRay(pcs.playerPos, rayDirNorm, uv, cell, hitPos, normal);
     if (cell != 0)
     {
         vec4 color = texture(sampler2D(textures[nonuniformEXT(cell)], textureSampler), uv);
