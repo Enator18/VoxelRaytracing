@@ -32,7 +32,7 @@ constexpr u32 NUM_FRAMES = 2;
 
 VkInstance instance;
 VkDebugUtilsMessengerEXT debugMessenger;
-VkSurfaceKHR surface;
+VkSurfaceKHR renderSurface;
 VkPhysicalDevice physDevice;
 VkDevice device;
 VkQueue graphicsQueue;
@@ -83,7 +83,7 @@ struct Texture
     VkImageView imageView;
 };
 
-std::vector<Texture> textures;
+std::vector<Texture> textureHandles;
 
 VkImageMemoryBarrier2 ImageBarrier(VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout, VkPipelineStageFlags2 srcStage, VkPipelineStageFlags2 dstStage)
 {
@@ -134,7 +134,7 @@ void RenderInitVk()
 
 
     // Create window surface
-    SDL_Vulkan_CreateSurface(window, instance, vkbInstance.allocation_callbacks, &surface);
+    SDL_Vulkan_CreateSurface(window, instance, vkbInstance.allocation_callbacks, &renderSurface);
 
     VkPhysicalDeviceVulkan12Features feat12
     {
@@ -154,7 +154,7 @@ void RenderInitVk()
     // Select which GPU to use
     vkb::PhysicalDeviceSelector selector{vkbInstance};
     vkb::PhysicalDevice vkbPhysDevice = selector
-            .set_surface(surface)
+            .set_surface(renderSurface)
             .set_minimum_version(1, 3)
             .set_required_features_12(feat12)
             .set_required_features_13(feat13)
@@ -190,7 +190,7 @@ void RenderInitVk()
     VK_CHECK(vmaCreateAllocator(&allocInfo, &deviceAllocator));
 
     // Create the swapchain and associated resources
-    vkb::SwapchainBuilder swapBuilder{physDevice, device, surface};
+    vkb::SwapchainBuilder swapBuilder{physDevice, device, renderSurface};
 
     vkb::Swapchain vkbSwapchain = swapBuilder
             .set_desired_format(VkSurfaceFormatKHR{.format = VK_FORMAT_B8G8R8A8_SRGB, .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
@@ -557,8 +557,6 @@ void LoadTextureVk(const char* path, u32 index)
     Texture texture;
     VK_CHECK(vmaCreateImage(deviceAllocator, &info, &allocInfo, &texture.image, &texture.allocation, nullptr));
 
-    VkImageView texView;
-
     VkImageViewCreateInfo texViewInfo
     {
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -575,9 +573,10 @@ void LoadTextureVk(const char* path, u32 index)
         }
     };
 
-    VK_CHECK(vkCreateImageView(device, &texViewInfo, nullptr, &texView));
+    VK_CHECK(vkCreateImageView(device, &texViewInfo, nullptr, &texture.imageView));
+    textureHandles.push_back(texture);
 
-    VkDescriptorImageInfo imageInfo{.imageView = texView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    VkDescriptorImageInfo imageInfo{.imageView = texture.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
 
     VkWriteDescriptorSet descriptorWrite
     {
