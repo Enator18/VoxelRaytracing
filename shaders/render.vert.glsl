@@ -15,17 +15,17 @@ vec2 screenPos[3] =
     vec2(3, 1)
 };
 
-layout(location = 0) out vec3 rayDir;
+layout(location = 0) out vec4 rayDir;
 
 layout (push_constant, scalar) uniform PushConstants
 {
+    mat4 playerRot;
     vec2 planeSize;
-    mat3 playerRot;
 } pcs;
 
 void main()
 {
     gl_Position = vertices[gl_VertexIndex];
     vec2 pos = screenPos[gl_VertexIndex];
-    rayDir = pcs.playerRot * vec3(1, pcs.planeSize * pos);
+    rayDir = pcs.playerRot * vec4(1, pcs.planeSize * pos, 0);
 }

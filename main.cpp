@@ -150,9 +150,9 @@ i32 main()
     SDL_SetWindowRelativeMouseMode(window, true);
 
     RenderInitVk();
-    LoadTextureVk("../textures/stone.png", 1);
-    LoadTextureVk("../textures/cobblestone.png", 2);
-    LoadTextureVk("../textures/dirt.png", 3);
+    LoadTextureVk("../textures/4dstone.png", 1);
+    LoadTextureVk("../textures/4ddirt.png", 2);
+    LoadTextureVk("../textures/4dgrass.png", 3);
 
     GenerateMap(4);
 

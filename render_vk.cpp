@@ -24,8 +24,6 @@
 #include "main.h"
 #include "render_vk.h"
 
-#include "SDL3/SDL_oldnames.h"
-
 using namespace glm;
 
 constexpr u32 NUM_FRAMES = 2;
@@ -65,9 +63,9 @@ VkSampler sampler;
 
 struct PushConstants
 {
+    mat4 playerRot;
     vec2 planeSize;
-    mat3 playerRot;
-    vec3 playerPos;
+    vec4 playerPos;
     VkDeviceAddress mapBuffer;
 };
 
@@ -237,7 +235,7 @@ void RenderInitVk()
     mapBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     mapBufferInfo.pNext = nullptr;
 
-    mapBufferInfo.size = MAP_SIZE * MAP_SIZE * MAP_SIZE;
+    mapBufferInfo.size = MAP_SIZE * MAP_SIZE * MAP_SIZE * MAP_SIZE;
     mapBufferInfo.usage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
     VmaAllocationCreateInfo mapAllocInfo = {};
@@ -381,6 +379,7 @@ void RenderInitVk()
         .minFilter = VK_FILTER_NEAREST,
         .addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
         .addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
         .compareEnable = VK_FALSE
     };
 
@@ -539,10 +538,10 @@ void LoadTextureVk(const char* path, u32 index)
     info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     info.pNext = nullptr;
 
-    info.imageType = VK_IMAGE_TYPE_2D;
+    info.imageType = VK_IMAGE_TYPE_3D;
     info.format = VK_FORMAT_R8G8B8A8_SRGB;
     info.flags = 0;
-    info.extent = {(u32)texSurface->w, (u32)texSurface->h, 1};
+    info.extent = {16, 16, 16};
 
     info.mipLevels = 1;
     info.arrayLayers = 1;
@@ -561,7 +560,7 @@ void LoadTextureVk(const char* path, u32 index)
     {
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .image = texture.image,
-        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .viewType = VK_IMAGE_VIEW_TYPE_3D,
         .format = VK_FORMAT_R8G8B8A8_SRGB,
         .subresourceRange
         {
@@ -645,7 +644,7 @@ void LoadTextureVk(const char* path, u32 index)
     VkBufferImageCopy copyRegion
     {
         .bufferOffset = 0,
-        .bufferRowLength = 0,
+        .bufferRowLength = (u32)texSurface->pitch / 4,
         .bufferImageHeight = 0,
         .imageSubresource
         {
@@ -654,7 +653,7 @@ void LoadTextureVk(const char* path, u32 index)
             .baseArrayLayer = 0,
             .layerCount = 1,
         },
-        .imageExtent{(u32)texSurface->w, (u32)texSurface->h, 1}
+        .imageExtent{16, 16, 16}
     };
 
     vkCmdCopyBufferToImage(commandBuffer, stagingBuffer, texture.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
@@ -713,8 +712,8 @@ void DrawViewVk()
 
     PushConstants pushConstants
     {
-        {planeWidth, planeHeight},
         PlayerRotation(),
+        {planeWidth, planeHeight},
         playerPos,
         frames[frameNum].mapAddress
     };
