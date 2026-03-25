@@ -10,7 +10,7 @@
 #include <glm/gtx/hash.hpp>
 
 #include "main.h"
-#include "render_soft.h"
+#include "render_vk.h"
 
 using namespace glm;
 
@@ -140,7 +140,7 @@ i32 main()
         return 1;
     }
 
-    window = SDL_CreateWindow("Voxel Raytracer", WINDOW_WIDTH, WINDOW_HEIGHT, 0);
+    window = SDL_CreateWindow("Voxel Raytracer", WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_VULKAN);
     if (window == nullptr)
     {
         std::cerr << "Window could not be created! SDL_Error: " << SDL_GetError() << std::endl;
@@ -149,7 +149,10 @@ i32 main()
 
     SDL_SetWindowRelativeMouseMode(window, true);
 
-    RenderInitSoft();
+    RenderInitVk();
+    LoadTextureVk("../textures/stone.png", 1);
+    LoadTextureVk("../textures/cobblestone.png", 2);
+    LoadTextureVk("../textures/dirt.png", 3);
 
     GenerateMap(4);
 
@@ -272,6 +275,6 @@ i32 main()
 
         playerPos += (PlayerRotation() * moveDir) * moveSpeed * delta;
 
-        DrawViewSoft();
+        DrawViewVk();
     }
 }

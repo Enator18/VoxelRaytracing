@@ -34,14 +34,6 @@ std::atomic<u32> nextTile;
 std::barrier<> startBarrier{numThreads};
 std::barrier<> endBarrier{numThreads};
 
-SDL_Surface* LoadTexture(const char* path)
-{
-    SDL_Surface* raw = SDL_LoadPNG(path);
-    SDL_Surface* converted = SDL_ConvertSurface(raw, surface->format);
-    SDL_DestroySurface(raw);
-    return converted;
-}
-
 struct RayHit
 {
     f32 distance;
@@ -221,9 +213,6 @@ void DrawTiles(u32 startTile)
 void RenderInitSoft()
 {
     surface = SDL_GetWindowSurface(window);
-    textures[1] = LoadTexture("../textures/4dstone.png");
-    textures[2] = LoadTexture("../textures/4ddirt.png");
-    textures[3] = LoadTexture("../textures/4dgrass.png");
 
     u32 hTiles = (WINDOW_WIDTH + tileSize - 1) / tileSize;
     u32 vTiles = (WINDOW_HEIGHT + tileSize - 1) / tileSize;
@@ -244,6 +233,13 @@ void RenderInitSoft()
         std::thread thread{DrawThread, i};
         thread.detach();
     }
+}
+
+void LoadTextureSoft(const char* path, u32 index)
+{
+    SDL_Surface* raw = SDL_LoadPNG(path);
+    textures[index] = SDL_ConvertSurface(raw, surface->format);
+    SDL_DestroySurface(raw);
 }
 
 void DrawViewSoft()
