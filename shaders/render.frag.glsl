@@ -16,7 +16,6 @@ layout (buffer_reference, scalar) readonly buffer MapBuffer
 
 layout (push_constant, scalar) uniform PushConstants
 {
-//    layout (offset = 8) mat3 playerRot;
     layout (offset = 44) vec3 playerPos;
     MapBuffer mapBuffer;
 } pcs;

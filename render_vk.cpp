@@ -24,8 +24,6 @@
 #include "main.h"
 #include "render_vk.h"
 
-#include "SDL3/SDL_oldnames.h"
-
 using namespace glm;
 
 constexpr u32 NUM_FRAMES = 2;
@@ -194,7 +192,7 @@ void RenderInitVk()
 
     vkb::Swapchain vkbSwapchain = swapBuilder
             .set_desired_format(VkSurfaceFormatKHR{.format = VK_FORMAT_B8G8R8A8_SRGB, .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
-            .set_desired_present_mode(VK_PRESENT_MODE_IMMEDIATE_KHR)
+            .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
             .set_desired_extent(WINDOW_WIDTH, WINDOW_HEIGHT)
             .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
             .build().value();
