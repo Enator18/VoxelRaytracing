@@ -22,7 +22,7 @@ SDL_Window* window;
 
 f32 fov = 90;
 f32 mouseSensitivity = 0.25;
-f32 moveSpeed = 2;
+f32 moveSpeed = 5;
 vec4 playerPos = {MAP_SIZE / 2 + 0.5, MAP_SIZE / 2 + 0.5, MAP_SIZE / 2 + 0.5, MAP_SIZE / 2 + 0.5};
 mat4 playerRot{1};
 f32 playerPitch;
@@ -154,7 +154,7 @@ i32 main()
     LoadTextureVk("../textures/4ddirt.png", 2);
     LoadTextureVk("../textures/4dgrass.png", 3);
 
-    GenerateMap(4);
+    GenerateMap(0);
 
     u64 then = SDL_GetPerformanceCounter();
 
