@@ -28,18 +28,18 @@ using namespace glm;
 
 constexpr u32 NUM_FRAMES = 2;
 
-VkInstance instance;
-VkDebugUtilsMessengerEXT debugMessenger;
-VkSurfaceKHR renderSurface;
-VkPhysicalDevice physDevice;
-VkDevice device;
-VkQueue graphicsQueue;
-u32 graphicsQueueFamily;
-VmaAllocator deviceAllocator;
-VkSwapchainKHR swapchain;
-std::vector<VkImage> swapImages;
-std::vector<VkImageView> swapImageViews;
-VkCommandPool mainCommandPool;
+static VkInstance instance;
+static VkDebugUtilsMessengerEXT debugMessenger;
+static VkSurfaceKHR surface;
+static VkPhysicalDevice physDevice;
+static VkDevice device;
+static VkQueue graphicsQueue;
+static u32 graphicsQueueFamily;
+static VmaAllocator allocator;
+static VkSwapchainKHR swapchain;
+static std::vector<VkImage> swapImages;
+static std::vector<VkImageView> swapImageViews;
+static VkCommandPool mainCommandPool;
 
 struct FrameData
 {
@@ -54,12 +54,12 @@ struct FrameData
     VkDeviceAddress mapAddress;
 };
 
-std::array<FrameData, NUM_FRAMES> frames;
-std::vector<VkSemaphore> renderSemaphores;
-VkDescriptorPool descriptorPool;
-VkDescriptorSetLayout descriptorLayout;
-VkDescriptorSet descriptorSet;
-VkSampler sampler;
+static std::array<FrameData, NUM_FRAMES> frames;
+static std::vector<VkSemaphore> renderSemaphores;
+static VkDescriptorPool descriptorPool;
+static VkDescriptorSetLayout descriptorLayout;
+static VkDescriptorSet descriptorSet;
+static VkSampler sampler;
 
 struct PushConstants
 {
@@ -69,10 +69,10 @@ struct PushConstants
     VkDeviceAddress mapBuffer;
 };
 
-VkPipelineLayout pipelineLayout;
-VkPipeline pipeline;
+static VkPipelineLayout pipelineLayout;
+static VkPipeline pipeline;
 
-u32 frameNum = 0;
+static u32 frameNum = 0;
 
 struct Texture
 {
@@ -81,7 +81,7 @@ struct Texture
     VkImageView imageView;
 };
 
-std::vector<Texture> textureHandles;
+static std::vector<Texture> textures;
 
 VkImageMemoryBarrier2 ImageBarrier(VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout, VkPipelineStageFlags2 srcStage, VkPipelineStageFlags2 dstStage)
 {
@@ -132,7 +132,7 @@ void RenderInitVk()
 
 
     // Create window surface
-    SDL_Vulkan_CreateSurface(window, instance, vkbInstance.allocation_callbacks, &renderSurface);
+    SDL_Vulkan_CreateSurface(window, instance, vkbInstance.allocation_callbacks, &surface);
 
     VkPhysicalDeviceVulkan12Features feat12
     {
@@ -152,7 +152,7 @@ void RenderInitVk()
     // Select which GPU to use
     vkb::PhysicalDeviceSelector selector{vkbInstance};
     vkb::PhysicalDevice vkbPhysDevice = selector
-            .set_surface(renderSurface)
+            .set_surface(surface)
             .set_minimum_version(1, 3)
             .set_required_features_12(feat12)
             .set_required_features_13(feat13)
@@ -185,10 +185,10 @@ void RenderInitVk()
         .instance = instance
     };
 
-    VK_CHECK(vmaCreateAllocator(&allocInfo, &deviceAllocator));
+    VK_CHECK(vmaCreateAllocator(&allocInfo, &allocator));
 
     // Create the swapchain and associated resources
-    vkb::SwapchainBuilder swapBuilder{physDevice, device, renderSurface};
+    vkb::SwapchainBuilder swapBuilder{physDevice, device, surface};
 
     vkb::Swapchain vkbSwapchain = swapBuilder
             .set_desired_format(VkSurfaceFormatKHR{.format = VK_FORMAT_B8G8R8A8_SRGB, .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
@@ -254,7 +254,7 @@ void RenderInitVk()
         VK_CHECK(vkCreateFence(device, &fenceInfo, nullptr, &frames[i].renderFence));
         VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frames[i].acquireSemaphore));
 
-        VK_CHECK(vmaCreateBuffer(deviceAllocator, &mapBufferInfo, &mapAllocInfo, &frames[i].mapBuffer, &frames[i].mapAllocation, nullptr));
+        VK_CHECK(vmaCreateBuffer(allocator, &mapBufferInfo, &mapAllocInfo, &frames[i].mapBuffer, &frames[i].mapAllocation, nullptr));
 
         VkBufferDeviceAddressInfo mapAddressInfo
         {
@@ -553,7 +553,7 @@ void LoadTextureVk(const char* path, u32 index)
     allocInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
     Texture texture;
-    VK_CHECK(vmaCreateImage(deviceAllocator, &info, &allocInfo, &texture.image, &texture.allocation, nullptr));
+    VK_CHECK(vmaCreateImage(allocator, &info, &allocInfo, &texture.image, &texture.allocation, nullptr));
 
     VkImageViewCreateInfo texViewInfo
     {
@@ -572,7 +572,7 @@ void LoadTextureVk(const char* path, u32 index)
     };
 
     VK_CHECK(vkCreateImageView(device, &texViewInfo, nullptr, &texture.imageView));
-    textureHandles.push_back(texture);
+    textures.push_back(texture);
 
     VkDescriptorImageInfo imageInfo{.imageView = texture.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
 
@@ -606,12 +606,12 @@ void LoadTextureVk(const char* path, u32 index)
     VkBuffer stagingBuffer;
     VmaAllocation stagingAllocation;
 
-    VK_CHECK(vmaCreateBuffer(deviceAllocator, &stagingInfo, &stagingAllocInfo, &stagingBuffer, &stagingAllocation, nullptr));
+    VK_CHECK(vmaCreateBuffer(allocator, &stagingInfo, &stagingAllocInfo, &stagingBuffer, &stagingAllocation, nullptr));
 
     void* uploadData;
-    vmaMapMemory(deviceAllocator, stagingAllocation, &uploadData);
+    vmaMapMemory(allocator, stagingAllocation, &uploadData);
     memcpy(uploadData, texSurface->pixels, dataSize);
-    vmaUnmapMemory(deviceAllocator, stagingAllocation);
+    vmaUnmapMemory(allocator, stagingAllocation);
 
     VkCommandBufferAllocateInfo cmdAllocInfo{};
     cmdAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -677,7 +677,7 @@ void LoadTextureVk(const char* path, u32 index)
 
     vkFreeCommandBuffers(device, mainCommandPool, 1, &commandBuffer);
 
-    vmaDestroyBuffer(deviceAllocator, stagingBuffer, stagingAllocation);
+    vmaDestroyBuffer(allocator, stagingBuffer, stagingAllocation);
     SDL_DestroySurface(raw);
 }
 

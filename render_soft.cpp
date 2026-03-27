@@ -13,12 +13,12 @@
 
 using namespace glm;
 
-SDL_Surface* surface;
+static SDL_Surface* surface;
 
-std::array<SDL_Surface*, 4> textures;
+static std::array<SDL_Surface*, 4> textures;
 
-u32 numThreads = std::thread::hardware_concurrency();
-u32 tileSize = 32;
+static u32 numThreads = std::thread::hardware_concurrency();
+static u32 tileSize = 32;
 
 struct RenderTile
 {
@@ -28,11 +28,11 @@ struct RenderTile
     u32 yEnd;
 };
 
-std::vector<RenderTile> tiles;
-u32 tileCount;
-std::atomic<u32> nextTile;
-std::barrier<> startBarrier{numThreads};
-std::barrier<> endBarrier{numThreads};
+static std::vector<RenderTile> tiles;
+static u32 tileCount;
+static std::atomic<u32> nextTile;
+static std::barrier<> startBarrier{numThreads};
+static std::barrier<> endBarrier{numThreads};
 
 struct RayHit
 {
