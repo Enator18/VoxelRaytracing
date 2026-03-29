@@ -309,7 +309,7 @@ void RenderInitVk()
     };
 
     // Set up descriptor pool and set for textures
-    VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 4}, {VK_DESCRIPTOR_TYPE_SAMPLER, 1}};
+    VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, NUM_TEXTURES + 1}, {VK_DESCRIPTOR_TYPE_SAMPLER, 1}};
 
     VkDescriptorPoolCreateInfo descriptorPoolInfo
     {
@@ -330,7 +330,7 @@ void RenderInitVk()
     {
         .binding = 0,
         .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-        .descriptorCount = 4,
+        .descriptorCount = NUM_TEXTURES + 1,
         .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
         .pImmutableSamplers = nullptr
     };
@@ -687,7 +687,7 @@ void DrawViewVk()
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
     //Synchronize and get images
-    VK_CHECK(vkWaitForFences(device, 1, &frames[frameNum].renderFence, true, 1000000000));
+    VK_CHECK(vkWaitForFences(device, 1, &frames[frameNum].renderFence, true, 100000000000ll));
 
     u32 swapIndex;
     VkResult acquireResult = vkAcquireNextImageKHR(device, swapchain, 1000000000, frames[frameNum].acquireSemaphore, VK_NULL_HANDLE, &swapIndex);

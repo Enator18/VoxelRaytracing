@@ -8,6 +8,7 @@ constexpr u32 WINDOW_WIDTH = 1920;
 constexpr u32 WINDOW_HEIGHT = 1080;
 
 constexpr u32 MAP_SIZE = 128;
+constexpr u32 NUM_TEXTURES = 4;
 
 extern std::array<u8, MAP_SIZE * MAP_SIZE * MAP_SIZE> map;
 extern SDL_Window* window;

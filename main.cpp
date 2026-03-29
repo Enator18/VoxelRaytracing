@@ -84,7 +84,8 @@ f32 PerlinNoise3D(u64 seed, vec3 pos)
 void GenerateMap(u64 seed)
 {
     std::mt19937_64 gen{seed};
-    std::uniform_int_distribution<u64> random{1, 3};
+    std::uniform_int_distribution<u16> random{1, 3};
+    std::uniform_real_distribution<f32> randomFloat;
     noiseDirs.clear();
     for (u32 x = 0; x < MAP_SIZE; x++)
     {
@@ -96,7 +97,7 @@ void GenerateMap(u64 seed)
                 f32 noise = PerlinNoise3D(seed, pos * 0.05f);
                 if (noise < 0)
                 {
-                    u8 val = random(gen);
+                    u8 val = randomFloat(gen) < 0.01 ? 4 : random(gen);
                     map[z * MAP_SIZE * MAP_SIZE + y * MAP_SIZE + x] = val;
                 }
                 else
@@ -129,6 +130,7 @@ i32 main()
     LoadTextureVk("../textures/stone.png", 1);
     LoadTextureVk("../textures/cobblestone.png", 2);
     LoadTextureVk("../textures/dirt.png", 3);
+    LoadTextureVk("../textures/glowstone.png", 4);
 
     GenerateMap(0);
 

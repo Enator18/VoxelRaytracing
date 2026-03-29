@@ -34,10 +34,10 @@ bool InBounds(ivec3 val)
     return InBounds(val.x) && InBounds(val.y) && InBounds(val.z);
 }
 
-void TraceRay(vec3 origin, vec3 dir, out vec2 uv, out uint cell, out vec3 hitPos, out vec3 normal)
+void TraceRay(inout vec3 pos, vec3 dir, out vec2 uv, out uint cell, out vec3 normal)
 {
     ivec3 step = ivec3(sign(dir));
-    ivec3 gridPos = ivec3(floor(origin));
+    ivec3 gridPos = ivec3(floor(pos));
     vec3 stepSize =
     {
         sqrt(1 + pow(dir.y / dir.x, 2) + pow(dir.z / dir.x, 2)),
@@ -59,7 +59,7 @@ void TraceRay(vec3 origin, vec3 dir, out vec2 uv, out uint cell, out vec3 hitPos
     }
 
     vec3 rayLength;
-    vec3 frac = origin - vec3(gridPos);
+    vec3 frac = pos - vec3(gridPos);
 
     if (dir.x < 0)
     {
@@ -95,7 +95,7 @@ void TraceRay(vec3 origin, vec3 dir, out vec2 uv, out uint cell, out vec3 hitPos
         {
             gridPos.x += step.x;
             distance = rayLength.x;
-            hitCoord = vec2(origin.y + distance * dir.y, origin.z + distance * dir.z);
+            hitCoord = vec2(pos.y + distance * dir.y, pos.z + distance * dir.z);
             rayLength.x += stepSize.x;
             normal = vec3(-step.x, 0, 0);
         }
@@ -103,7 +103,7 @@ void TraceRay(vec3 origin, vec3 dir, out vec2 uv, out uint cell, out vec3 hitPos
         {
             gridPos.y += step.y;
             distance = rayLength.y;
-            hitCoord = vec2(origin.x + distance * dir.x, origin.z + distance * dir.z);
+            hitCoord = vec2(pos.x + distance * dir.x, pos.z + distance * dir.z);
             rayLength.y += stepSize.y;
             normal = vec3(0, -step.y, 0);
         }
@@ -111,7 +111,7 @@ void TraceRay(vec3 origin, vec3 dir, out vec2 uv, out uint cell, out vec3 hitPos
         {
             gridPos.z += step.z;
             distance = rayLength.z;
-            hitCoord = vec2(origin.x + distance * dir.x, origin.y + distance * dir.y);
+            hitCoord = vec2(pos.x + distance * dir.x, pos.y + distance * dir.y);
             rayLength.z += stepSize.z;
             normal = vec3(0, 0, -step.z);
         }
@@ -126,7 +126,7 @@ void TraceRay(vec3 origin, vec3 dir, out vec2 uv, out uint cell, out vec3 hitPos
         if (cell != 0)
         {
             uv = fract(hitCoord);
-            hitPos = origin + distance * dir;
+            pos += distance * dir;
             return;
         }
     }
@@ -155,27 +155,68 @@ vec3 RandomDirection(inout uint seed)
     return normalize(vec3(x, y, z));
 }
 
-void main()
+void SampleRay(vec3 pos, vec3 dir, out vec3 color, inout uint seed)
 {
     vec2 uv;
     uint cell;
-    vec3 hitPos;
     vec3 normal;
+    color = vec3(1);
+
+    for (uint i = 0; i < 3; i++)
+    {
+        TraceRay(pos, dir, uv, cell, normal);
+        if (cell != 0)
+        {
+            color *= texture(sampler2D(textures[nonuniformEXT(cell)], textureSampler), uv).xyz;
+            if (cell == 4)
+            {
+                return;
+            }
+            dir = RandomDirection(seed);
+            if (dot(dir, normal) < 0)
+            {
+                dir *= -1;
+            }
+        }
+        else
+        {
+            break;
+        }
+    }
+    color = vec3(0);
+}
+
+void main()
+{
+    uvec2 uCoord = uvec2(gl_FragCoord.xy);
+    uint seed = uCoord.x + uCoord.y * 1920;
+    vec3 pos = pcs.playerPos;
     vec3 rayDirNorm = normalize(rayDir);
-    vec3 shadowDir = normalize(vec3(2, 3, 4));
-    TraceRay(pcs.playerPos, rayDirNorm, uv, cell, hitPos, normal);
+    vec2 uv;
+    uint cell;
+    vec3 normal;
+    TraceRay(pos, rayDirNorm, uv, cell, normal);
     if (cell != 0)
     {
-        vec4 color = texture(sampler2D(textures[nonuniformEXT(cell)], textureSampler), uv);
-        vec3 shadowOrigin = hitPos;
-        float light = 0.2;
-        vec3 unused;
-        TraceRay(shadowOrigin, shadowDir, uv, cell, hitPos, unused);
-        if (cell == 0)
+        vec4 texColor = texture(sampler2D(textures[nonuniformEXT(cell)], textureSampler), uv);
+        if (cell == 4)
         {
-            light += 0.8 * max(0, dot(normal, shadowDir));
+            outFragColor = texColor;
+            return;
         }
-        outFragColor = color * light;
+        vec3 totalBounceColor = vec3(0);
+        for (uint i = 0; i < 50; i++)
+        {
+            vec3 dir = RandomDirection(seed);
+            if (dot(dir, normal) < 0)
+            {
+                dir *= -1;
+            }
+            vec3 color;
+            SampleRay(pos, dir, color, seed);
+            totalBounceColor += color;
+        }
+        outFragColor = texColor * vec4(totalBounceColor / 50, 1);
     }
     else
     {
