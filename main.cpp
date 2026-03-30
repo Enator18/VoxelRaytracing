@@ -135,8 +135,8 @@ i32 main()
     GenerateMap(0);
 
     u64 then = SDL_GetPerformanceCounter();
-    u64 profileStart = then;
-    u32 frameCount = 0;
+    // u64 profileStart = then;
+    // u32 frameCount = 0;
 
     while (true)
     {
@@ -144,16 +144,16 @@ i32 main()
         f32 delta = (f64)(now - then) / SDL_GetPerformanceFrequency();
         then = now;
 
-        frameCount++;
-        if (frameCount > 500)
-        {
-            u64 profileEnd = SDL_GetPerformanceCounter();
-            f32 profileTime = (f64)(profileEnd - profileStart) / SDL_GetPerformanceFrequency();
-            std::cout << profileTime << std::endl;
-            return 0;
-        }
+        // frameCount++;
+        // if (frameCount > 100)
+        // {
+        //     u64 profileEnd = SDL_GetPerformanceCounter();
+        //     f32 profileTime = (f64)(profileEnd - profileStart) / SDL_GetPerformanceFrequency();
+        //     std::cout << profileTime << std::endl;
+        //     return 0;
+        // }
 
-        // std::cout << (int)(1 / delta) << std::endl;
+        std::cout << (int)(1 / delta) << std::endl;
 
         SDL_Event event;
         while (SDL_PollEvent(&event))
