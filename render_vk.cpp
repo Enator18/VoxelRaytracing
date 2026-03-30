@@ -67,6 +67,7 @@ struct PushConstants
     mat3 playerRot;
     vec3 playerPos;
     VkDeviceAddress mapBuffer;
+    uint32_t screenWidth;
 };
 
 static VkPipelineLayout pipelineLayout;
@@ -687,7 +688,7 @@ void DrawViewVk()
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
     //Synchronize and get images
-    VK_CHECK(vkWaitForFences(device, 1, &frames[frameNum].renderFence, true, 100000000000ll));
+    VK_CHECK(vkWaitForFences(device, 1, &frames[frameNum].renderFence, true, UINT64_MAX));
 
     u32 swapIndex;
     VkResult acquireResult = vkAcquireNextImageKHR(device, swapchain, 1000000000, frames[frameNum].acquireSemaphore, VK_NULL_HANDLE, &swapIndex);
@@ -714,7 +715,8 @@ void DrawViewVk()
         {planeWidth, planeHeight},
         PlayerRotation(),
         playerPos,
-        frames[frameNum].mapAddress
+        frames[frameNum].mapAddress,
+        WINDOW_WIDTH
     };
 
     vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &pushConstants);
