@@ -39,12 +39,14 @@ void TraceRay(inout vec3 pos, vec3 dir, out vec2 uv, out uint cell, out vec3 nor
 {
     ivec3 step = ivec3(sign(dir));
     ivec3 gridPos = ivec3(floor(pos));
-    vec3 stepSize =
-    {
-        sqrt(1 + pow(dir.y / dir.x, 2) + pow(dir.z / dir.x, 2)),
-        sqrt(1 + pow(dir.x / dir.y, 2) + pow(dir.z / dir.y, 2)),
-        sqrt(1 + pow(dir.x / dir.z, 2) + pow(dir.y / dir.z, 2))
-    };
+//    vec3 stepSize =
+//    {
+//        sqrt(1 + pow(dir.y / dir.x, 2) + pow(dir.z / dir.x, 2)),
+//        sqrt(1 + pow(dir.x / dir.y, 2) + pow(dir.z / dir.y, 2)),
+//        sqrt(1 + pow(dir.x / dir.z, 2) + pow(dir.y / dir.z, 2))
+//    };
+
+    vec3 stepSize = 1 / abs(dir);
 
     if (isnan(stepSize.x))
     {

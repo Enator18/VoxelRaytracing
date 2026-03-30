@@ -144,14 +144,14 @@ i32 main()
         f32 delta = (f64)(now - then) / SDL_GetPerformanceFrequency();
         then = now;
 
-        // frameCount++;
-        // if (frameCount > 100)
-        // {
-        //     u64 profileEnd = SDL_GetPerformanceCounter();
-        //     f32 profileTime = (f64)(profileEnd - profileStart) / SDL_GetPerformanceFrequency();
-        //     std::cout << profileTime << std::endl;
-        //     return 0;
-        // }
+        frameCount++;
+        if (frameCount > 100)
+        {
+            u64 profileEnd = SDL_GetPerformanceCounter();
+            f32 profileTime = (f64)(profileEnd - profileStart) / SDL_GetPerformanceFrequency();
+            std::cout << profileTime << std::endl;
+            return 0;
+        }
 
         // std::cout << (int)(1 / delta) << std::endl;
 
