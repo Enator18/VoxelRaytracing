@@ -39,27 +39,8 @@ void TraceRay(inout vec3 pos, vec3 dir, out vec2 uv, out uint cell, out vec3 nor
 {
     ivec3 step = ivec3(sign(dir));
     ivec3 gridPos = ivec3(floor(pos));
-//    vec3 stepSize =
-//    {
-//        sqrt(1 + pow(dir.y / dir.x, 2) + pow(dir.z / dir.x, 2)),
-//        sqrt(1 + pow(dir.x / dir.y, 2) + pow(dir.z / dir.y, 2)),
-//        sqrt(1 + pow(dir.x / dir.z, 2) + pow(dir.y / dir.z, 2))
-//    };
 
     vec3 stepSize = 1 / abs(dir);
-
-    if (isnan(stepSize.x))
-    {
-        stepSize.x = 1 / 0;
-    }
-    if (isnan(stepSize.y))
-    {
-        stepSize.y = 1 / 0;
-    }
-    if (isnan(stepSize.z))
-    {
-        stepSize.z = 1 / 0;
-    }
 
     vec3 rayLength;
     vec3 frac = pos - vec3(gridPos);
@@ -90,7 +71,6 @@ void TraceRay(inout vec3 pos, vec3 dir, out vec2 uv, out uint cell, out vec3 nor
     }
 
     float distance;
-    vec2 hitCoord;
 
     while (true)
     {
@@ -98,7 +78,6 @@ void TraceRay(inout vec3 pos, vec3 dir, out vec2 uv, out uint cell, out vec3 nor
         {
             gridPos.x += step.x;
             distance = rayLength.x;
-            hitCoord = vec2(pos.y + distance * dir.y, pos.z + distance * dir.z);
             rayLength.x += stepSize.x;
             normal = vec3(-step.x, 0, 0);
         }
@@ -106,7 +85,6 @@ void TraceRay(inout vec3 pos, vec3 dir, out vec2 uv, out uint cell, out vec3 nor
         {
             gridPos.y += step.y;
             distance = rayLength.y;
-            hitCoord = vec2(pos.x + distance * dir.x, pos.z + distance * dir.z);
             rayLength.y += stepSize.y;
             normal = vec3(0, -step.y, 0);
         }
@@ -114,7 +92,6 @@ void TraceRay(inout vec3 pos, vec3 dir, out vec2 uv, out uint cell, out vec3 nor
         {
             gridPos.z += step.z;
             distance = rayLength.z;
-            hitCoord = vec2(pos.x + distance * dir.x, pos.y + distance * dir.y);
             rayLength.z += stepSize.z;
             normal = vec3(0, 0, -step.z);
         }
@@ -128,8 +105,14 @@ void TraceRay(inout vec3 pos, vec3 dir, out vec2 uv, out uint cell, out vec3 nor
         cell = uint(pcs.mapBuffer.cells[gridPos.z * MAP_SIZE * MAP_SIZE + gridPos.y * MAP_SIZE + gridPos.x]);
         if (cell != 0)
         {
-            uv = fract(hitCoord);
             pos += distance * dir;
+            mat3x2 uvMat =
+            {
+                {pos.y, pos.z},
+                {pos.x, pos.z},
+                {pos.x, pos.y},
+            };
+            uv = fract(uvMat * normal);
             return;
         }
     }
