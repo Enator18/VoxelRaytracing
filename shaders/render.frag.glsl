@@ -173,11 +173,9 @@ void SampleRay(vec3 pos, vec3 dir, out vec3 color, inout uint seed)
             {
                 return;
             }
-            dir = RandomDirection(seed);
-            if (dot(dir, normal) < 0)
-            {
-                dir *= -1;
-            }
+            vec3 randDir = RandomDirection(seed);
+
+            dir = normalize(normal + randDir);
         }
         else
         {
@@ -206,18 +204,15 @@ void main()
             return;
         }
         vec3 totalBounceColor = vec3(0);
-        for (uint i = 0; i < 16; i++)
+        for (uint i = 0; i < 32; i++)
         {
             vec3 dir = RandomDirection(seed);
-            if (dot(dir, normal) < 0)
-            {
-                dir *= -1;
-            }
+            vec3 cosDir = normalize(normal + dir);
             vec3 color;
-            SampleRay(pos, dir, color, seed);
+            SampleRay(pos, cosDir, color, seed);
             totalBounceColor += color;
         }
-        outFragColor = texColor * vec4(totalBounceColor / 16, 1);
+        outFragColor = texColor * vec4(totalBounceColor / 32, 1);
     }
     else
     {
