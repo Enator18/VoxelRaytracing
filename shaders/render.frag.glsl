@@ -74,27 +74,16 @@ void TraceRay(inout vec3 pos, vec3 dir, out vec2 uv, out uint cell, out vec3 nor
 
     while (true)
     {
-        if (rayLength.x < rayLength.y && rayLength.x < rayLength.z)
-        {
-            gridPos.x += step.x;
-            distance = rayLength.x;
-            rayLength.x += stepSize.x;
-            normal = vec3(-step.x, 0, 0);
-        }
-        else if (rayLength.y < rayLength.z)
-        {
-            gridPos.y += step.y;
-            distance = rayLength.y;
-            rayLength.y += stepSize.y;
-            normal = vec3(0, -step.y, 0);
-        }
-        else
-        {
-            gridPos.z += step.z;
-            distance = rayLength.z;
-            rayLength.z += stepSize.z;
-            normal = vec3(0, 0, -step.z);
-        }
+        ivec3 axis =
+        ivec3(
+            rayLength.x <= rayLength.y && rayLength.x <= rayLength.z,
+            rayLength.y <= rayLength.x && rayLength.y <= rayLength.z,
+            rayLength.z <= rayLength.x && rayLength.z <= rayLength.y
+        );
+
+        gridPos += step * axis;
+        distance = length(rayLength * axis);
+        rayLength += stepSize * axis;
 
         if (!InBounds(gridPos))
         {
@@ -105,6 +94,7 @@ void TraceRay(inout vec3 pos, vec3 dir, out vec2 uv, out uint cell, out vec3 nor
         cell = uint(pcs.mapBuffer.cells[gridPos.z * MAP_SIZE * MAP_SIZE + gridPos.y * MAP_SIZE + gridPos.x]);
         if (cell != 0)
         {
+            normal = -step * axis;
             pos += distance * dir;
             mat3x2 uvMat =
             {

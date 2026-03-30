@@ -145,7 +145,7 @@ i32 main()
         then = now;
 
         frameCount++;
-        if (frameCount > 100)
+        if (frameCount > 500)
         {
             u64 profileEnd = SDL_GetPerformanceCounter();
             f32 profileTime = (f64)(profileEnd - profileStart) / SDL_GetPerformanceFrequency();
