@@ -4,7 +4,8 @@
 #extension GL_EXT_buffer_reference : require
 #extension GL_EXT_nonuniform_qualifier : require
 
-#define MAP_SIZE 128
+#define MAP_SIZE 64
+#define PI 3.1415926538
 
 layout(location = 0) in vec3 rayDir;
 layout(location = 0) out vec4 outFragColor;
@@ -45,30 +46,7 @@ void TraceRay(inout vec3 pos, vec3 dir, out vec2 uv, out uint cell, out vec3 nor
     vec3 rayLength;
     vec3 frac = pos - vec3(gridPos);
 
-    if (dir.x < 0)
-    {
-        rayLength.x = frac.x * stepSize.x;
-    }
-    else
-    {
-        rayLength.x = (1 - frac.x) * stepSize.x;
-    }
-    if (dir.y < 0)
-    {
-        rayLength.y = frac.y * stepSize.y;
-    }
-    else
-    {
-        rayLength.y = (1 - frac.y) * stepSize.y;
-    }
-    if (dir.z < 0)
-    {
-        rayLength.z = frac.z * stepSize.z;
-    }
-    else
-    {
-        rayLength.z = (1 - frac.z) * stepSize.z;
-    }
+    rayLength = mix((1 - frac) * stepSize, frac * stepSize, lessThan(dir, vec3(0)));
 
     float distance;
 
@@ -172,14 +150,16 @@ void main()
     TraceRay(pos, rayDirNorm, uv, cell, normal);
     if (cell != 0)
     {
-        vec4 texColor = texture(sampler2D(textures[nonuniformEXT(cell)], textureSampler), uv);
+        vec3 texColor = texture(sampler2D(textures[nonuniformEXT(cell)], textureSampler), uv).xyz;
         if (cell == 4)
         {
-            outFragColor = texColor;
+            vec3 hdr = texColor;
+            vec3 mapped = 1 - exp(-hdr * 8);
+            outFragColor = vec4(mapped, 1);
             return;
         }
         vec3 totalBounceColor = vec3(0);
-        for (uint i = 0; i < 32; i++)
+        for (uint i = 0; i < 64; i++)
         {
             vec3 dir = RandomDirection(seed);
             vec3 cosDir = normalize(normal + dir);
@@ -187,7 +167,9 @@ void main()
             SampleRay(pos, cosDir, color, seed);
             totalBounceColor += color;
         }
-        outFragColor = texColor * vec4(totalBounceColor / 32, 1);
+        vec3 hdr = texColor * totalBounceColor * PI / 64;
+        vec3 mapped = 1 - exp(-hdr * 4);
+        outFragColor = vec4(mapped, 1);
     }
     else
     {

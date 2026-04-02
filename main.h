@@ -7,7 +7,7 @@ using namespace glm;
 constexpr u32 WINDOW_WIDTH = 1920;
 constexpr u32 WINDOW_HEIGHT = 1080;
 
-constexpr u32 MAP_SIZE = 128;
+constexpr u32 MAP_SIZE = 64;
 constexpr u32 NUM_TEXTURES = 4;
 
 extern std::array<u8, MAP_SIZE * MAP_SIZE * MAP_SIZE> map;
@@ -25,6 +25,11 @@ inline bool InBounds(i32 val)
 inline bool InBounds(ivec3 val)
 {
     return InBounds(val.x) && InBounds(val.y) && InBounds(val.z);
+}
+
+inline u8& TileAt(u32 x, u32 y, u32 z)
+{
+    return map[z * MAP_SIZE * MAP_SIZE + y * MAP_SIZE + x];
 }
 
 inline mat3 PlayerRotation()

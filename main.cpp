@@ -23,8 +23,8 @@ SDL_Window* window;
 f32 fov = 90;
 f32 mouseSensitivity = 0.25;
 f32 moveSpeed = 5;
-vec3 playerPos = {MAP_SIZE / 2 + 0.5, MAP_SIZE / 2 + 0.5, MAP_SIZE * 0.75 + 0.5};
-vec2 playerRot;
+vec3 playerPos = {MAP_SIZE / 2 - 10.5, MAP_SIZE / 2 + 3.5, MAP_SIZE / 2 + 0.5};
+vec2 playerRot = {0.01, -1.5708};
 
 std::unordered_set<SDL_Keycode> keysDown;
 
@@ -84,25 +84,31 @@ f32 PerlinNoise3D(u64 seed, vec3 pos)
 void GenerateMap(u64 seed)
 {
     std::mt19937_64 gen{seed};
-    std::uniform_int_distribution<u16> random{1, 3};
     std::uniform_real_distribution<f32> randomFloat;
     noiseDirs.clear();
     for (u32 x = 0; x < MAP_SIZE; x++)
     {
         for (u32 y = 0; y < MAP_SIZE; y++)
         {
-            for (u32 z = 0; z < MAP_SIZE; z++)
+            for (i32 z = MAP_SIZE - 1; z >= 0; z--)
             {
                 vec3 pos = {x, y, z};
                 f32 noise = PerlinNoise3D(seed, pos * 0.05f);
-                if (noise < 0)
+                if (noise < 0.25)
                 {
-                    u8 val = randomFloat(gen) < 0.01 ? 4 : random(gen);
-                    map[z * MAP_SIZE * MAP_SIZE + y * MAP_SIZE + x] = val;
+                    if (InBounds(z + 1) && TileAt(x, y, z + 1) == 0)
+                    {
+                        TileAt(x, y, z) = 3;
+                    }
+                    else
+                    {
+                        u8 val = randomFloat(gen) < 0.01 ? 4 : 1;
+                        TileAt(x, y, z) = val;
+                    }
                 }
                 else
                 {
-                    map[z * MAP_SIZE * MAP_SIZE + y * MAP_SIZE + x] = 0;
+                    TileAt(x, y, z) = 0;
                 }
             }
         }
@@ -135,8 +141,8 @@ i32 main()
     GenerateMap(0);
 
     u64 then = SDL_GetPerformanceCounter();
-    // u64 profileStart = then;
-    // u32 frameCount = 0;
+    u64 profileStart = then;
+    u32 frameCount = 0;
 
     while (true)
     {
