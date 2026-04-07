@@ -7,7 +7,7 @@ using namespace glm;
 constexpr u32 WINDOW_WIDTH = 1920;
 constexpr u32 WINDOW_HEIGHT = 1080;
 
-constexpr u32 MAP_SIZE = 64;
+constexpr u32 MAP_SIZE = 32;
 
 extern std::array<u8, MAP_SIZE * MAP_SIZE * MAP_SIZE * MAP_SIZE> map;
 extern SDL_Window* window;

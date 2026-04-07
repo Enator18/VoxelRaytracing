@@ -4,7 +4,7 @@
 #extension GL_EXT_buffer_reference : require
 #extension GL_EXT_nonuniform_qualifier : require
 
-#define MAP_SIZE 64
+#define MAP_SIZE 32
 
 layout(location = 0) in vec4 rayDir;
 layout(location = 0) out vec4 outFragColor;
