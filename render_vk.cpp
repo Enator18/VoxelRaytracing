@@ -67,13 +67,15 @@ struct PushConstants
     mat3 playerRot;
     vec3 playerPos;
     VkDeviceAddress mapBuffer;
-    uint32_t screenWidth;
+    ivec2 screenWidth;
+    u32 frameNum;
 };
 
 static VkPipelineLayout pipelineLayout;
 static VkPipeline pipeline;
 
 static u32 frameNum = 0;
+static u32 frameCount = 0;
 
 struct Texture
 {
@@ -716,7 +718,8 @@ void DrawViewVk()
         PlayerRotation(),
         playerPos,
         frames[frameNum].mapAddress,
-        WINDOW_WIDTH
+        {WINDOW_WIDTH, WINDOW_HEIGHT},
+        frameCount
     };
 
     vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &pushConstants);
@@ -815,6 +818,7 @@ void DrawViewVk()
 
     VkResult presentResult = vkQueuePresentKHR(graphicsQueue, &presentInfo);
 
+    frameCount++;
     frameNum++;
     frameNum %= NUM_FRAMES;
 }

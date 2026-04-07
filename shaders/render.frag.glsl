@@ -19,7 +19,8 @@ layout (push_constant, scalar) uniform PushConstants
 {
     layout (offset = 44) vec3 playerPos;
     MapBuffer mapBuffer;
-    uint screenWidth;
+    ivec2 screenSize;
+    uint frameNum;
 } pcs;
 
 layout(set = 0, binding = 0) uniform texture2D textures[];
@@ -141,7 +142,7 @@ void SampleRay(vec3 pos, vec3 dir, out vec3 color, inout uint seed)
 void main()
 {
     uvec2 uCoord = uvec2(gl_FragCoord.xy);
-    uint seed = uCoord.x + uCoord.y * pcs.screenWidth;
+    uint seed = uCoord.x + (uCoord.y + pcs.frameNum * pcs.screenSize.y) * pcs.screenSize.x;
     vec3 pos = pcs.playerPos;
     vec3 rayDirNorm = normalize(rayDir);
     vec2 uv;
@@ -154,7 +155,7 @@ void main()
         if (cell == 4)
         {
             vec3 hdr = texColor;
-            vec3 mapped = 1 - exp(-hdr * 8);
+            vec3 mapped = 1 - exp(-hdr * 2);
             outFragColor = vec4(mapped, 1);
             return;
         }
@@ -168,7 +169,7 @@ void main()
             totalBounceColor += color;
         }
         vec3 hdr = texColor * totalBounceColor * PI / 64;
-        vec3 mapped = 1 - exp(-hdr * 4);
+        vec3 mapped = 1 - exp(-hdr * 2);
         outFragColor = vec4(mapped, 1);
     }
     else
