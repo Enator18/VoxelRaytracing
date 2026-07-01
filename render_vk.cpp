@@ -51,7 +51,6 @@ struct FrameData
 
     VkBuffer mapBuffer;
     VmaAllocation mapAllocation;
-    VkDeviceAddress mapAddress;
 };
 
 static std::array<FrameData, NUM_FRAMES> frames;
@@ -66,7 +65,6 @@ struct PushConstants
     vec2 planeSize;
     mat3 playerRot;
     vec3 playerPos;
-    VkDeviceAddress mapBuffer;
     ivec2 screenWidth;
     u32 frameNum;
 };
@@ -83,6 +81,8 @@ struct Texture
     VmaAllocation allocation;
     VkImageView imageView;
 };
+
+static Texture mapTexture;
 
 static std::vector<Texture> textures;
 
@@ -239,7 +239,7 @@ void RenderInitVk()
     mapBufferInfo.pNext = nullptr;
 
     mapBufferInfo.size = MAP_SIZE * MAP_SIZE * MAP_SIZE;
-    mapBufferInfo.usage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+    mapBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
     VmaAllocationCreateInfo mapAllocInfo = {};
     mapAllocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT
@@ -258,13 +258,6 @@ void RenderInitVk()
         VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frames[i].acquireSemaphore));
 
         VK_CHECK(vmaCreateBuffer(allocator, &mapBufferInfo, &mapAllocInfo, &frames[i].mapBuffer, &frames[i].mapAllocation, nullptr));
-
-        VkBufferDeviceAddressInfo mapAddressInfo
-        {
-            .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-            .buffer = frames[i].mapBuffer
-        };
-        frames[i].mapAddress = vkGetBufferDeviceAddress(device, &mapAddressInfo);
     }
 
     renderSemaphores = std::vector<VkSemaphore>(swapImages.size());
@@ -273,6 +266,45 @@ void RenderInitVk()
     {
         VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderSemaphores[i]));
     }
+
+    VkImageCreateInfo mapImageInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .imageType = VK_IMAGE_TYPE_3D,
+        .format = VK_FORMAT_R8_UINT,
+        .extent = {MAP_SIZE, MAP_SIZE, MAP_SIZE},
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT
+    };
+
+    VmaAllocationCreateInfo mapImageAllocInfo
+    {
+        .usage = VMA_MEMORY_USAGE_GPU_ONLY,
+        .requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+    };
+
+    VK_CHECK(vmaCreateImage(allocator, &mapImageInfo, &mapImageAllocInfo, &mapTexture.image, &mapTexture.allocation, nullptr));
+
+    VkImageViewCreateInfo mapViewInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .image = mapTexture.image,
+        .viewType = VK_IMAGE_VIEW_TYPE_3D,
+        .format = VK_FORMAT_R8_UINT,
+        .subresourceRange
+        {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
+    };
+
+    VK_CHECK(vkCreateImageView(device, &mapViewInfo, nullptr, &mapTexture.imageView));
 
     VkShaderModuleCreateInfo shaderInfo{.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
     void* shaderFile = SDL_LoadFile("../shaders/render.vert.spv", &shaderInfo.codeSize);
@@ -312,23 +344,23 @@ void RenderInitVk()
     };
 
     // Set up descriptor pool and set for textures
-    VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, NUM_TEXTURES + 1}, {VK_DESCRIPTOR_TYPE_SAMPLER, 1}};
+    VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, NUM_TEXTURES + 1}, {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1}, {VK_DESCRIPTOR_TYPE_SAMPLER, 1}};
 
     VkDescriptorPoolCreateInfo descriptorPoolInfo
     {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT
             | VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
-        .maxSets = 2,
-        .poolSizeCount = 2,
+        .maxSets = 1,
+        .poolSizeCount = 3,
         .pPoolSizes = poolSizes
     };
 
     VK_CHECK(vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool));
 
     VkDescriptorBindingFlags bindlessFlags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
-    VkDescriptorBindingFlags bindingFlags[2] = {bindlessFlags, 0};
-    VkDescriptorSetLayoutBinding bindings[2];
+    VkDescriptorBindingFlags bindingFlags[3] = {bindlessFlags, 0, 0};
+    VkDescriptorSetLayoutBinding bindings[3];
     bindings[0] =
     {
         .binding = 0,
@@ -347,10 +379,19 @@ void RenderInitVk()
         .pImmutableSamplers = nullptr
     };
 
+    bindings[2] =
+    {
+        .binding = 2,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .pImmutableSamplers = nullptr
+    };
+
     VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo
     {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
-        .bindingCount = 2,
+        .bindingCount = 3,
         .pBindingFlags = bindingFlags
     };
 
@@ -359,7 +400,7 @@ void RenderInitVk()
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
         .pNext = &bindingFlagsInfo,
         .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT,
-        .bindingCount = 2,
+        .bindingCount = 3,
         .pBindings = bindings
     };
 
@@ -399,7 +440,21 @@ void RenderInitVk()
         .pImageInfo = &samplerDescInfo
     };
 
-    vkUpdateDescriptorSets(device, 1, &samplerWrite, 0, nullptr);
+    VkDescriptorImageInfo mapImageDescInfo{.imageView = mapTexture.imageView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
+
+    VkWriteDescriptorSet mapImageWrite
+    {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = descriptorSet,
+        .dstBinding = 2,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        .pImageInfo = &mapImageDescInfo
+    };
+
+    VkWriteDescriptorSet descWrites[2] = {samplerWrite, mapImageWrite};
+
+    vkUpdateDescriptorSets(device, 2, descWrites, 0, nullptr);
 
     VkPushConstantRange pushConstants
     {
@@ -709,6 +764,31 @@ void DrawViewVk()
 
     VK_CHECK(vkBeginCommandBuffer(cmd, &beginInfo));
 
+    VkImageMemoryBarrier2 preCopyBarrier = ImageBarrier(mapTexture.image,
+        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+
+    VkDependencyInfo copyDepInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &preCopyBarrier
+    };
+
+    vkCmdPipelineBarrier2(cmd, &copyDepInfo);
+
+    VkBufferImageCopy mapCopy
+    {
+        .imageSubresource =
+        {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .layerCount = 1
+        },
+        .imageExtent = {MAP_SIZE, MAP_SIZE, MAP_SIZE}
+    };
+
+    vkCmdCopyBufferToImage(cmd, frames[frameNum].mapBuffer, mapTexture.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &mapCopy);
+
     f32 planeHeight = tan(radians(fov / 2));
     f32 planeWidth = planeHeight * WINDOW_WIDTH / WINDOW_HEIGHT;
 
@@ -717,7 +797,6 @@ void DrawViewVk()
         {planeWidth, planeHeight},
         PlayerRotation(),
         playerPos,
-        frames[frameNum].mapAddress,
         {WINDOW_WIDTH, WINDOW_HEIGHT},
         frameCount
     };
@@ -727,9 +806,15 @@ void DrawViewVk()
     void* mapData = frames[frameNum].mapAllocation->GetMappedData();
     memcpy(mapData, map.data(), map.size());
 
-    VkImageMemoryBarrier2 imageDrawBarrier = ImageBarrier(swapImages[swapIndex],
+    VkImageMemoryBarrier2 drawBarriers[2];
+
+    drawBarriers[0] = ImageBarrier(swapImages[swapIndex],
         VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
+
+    drawBarriers[1] = ImageBarrier(mapTexture.image,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
+        VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT);
 
     VkClearValue clearValue{.color = {{0.0f, 0.0f, 0.0f, 1.0f}}};
 
@@ -761,8 +846,8 @@ void DrawViewVk()
     VkDependencyInfo drawDepInfo
     {
         .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-        .imageMemoryBarrierCount = 1,
-        .pImageMemoryBarriers = &imageDrawBarrier
+        .imageMemoryBarrierCount = 2,
+        .pImageMemoryBarriers = drawBarriers
     };
 
     vkCmdPipelineBarrier2(cmd, &drawDepInfo);

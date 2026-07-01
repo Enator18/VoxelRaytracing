@@ -1,7 +1,6 @@
 #version 460
 #extension GL_EXT_shader_8bit_storage : enable
 #extension GL_EXT_scalar_block_layout : require
-#extension GL_EXT_buffer_reference : require
 #extension GL_EXT_nonuniform_qualifier : require
 
 #define MAP_SIZE 64
@@ -10,15 +9,9 @@
 layout(location = 0) in vec3 rayDir;
 layout(location = 0) out vec4 outFragColor;
 
-layout (buffer_reference, scalar) readonly buffer MapBuffer
-{
-    uint8_t cells[];
-};
-
 layout (push_constant, scalar) uniform PushConstants
 {
     layout (offset = 44) vec3 playerPos;
-    MapBuffer mapBuffer;
     ivec2 screenSize;
     uint frameNum;
 } pcs;
@@ -26,6 +19,8 @@ layout (push_constant, scalar) uniform PushConstants
 layout(set = 0, binding = 0) uniform texture2D textures[];
 
 layout(set = 0, binding = 1) uniform sampler textureSampler;
+
+layout(set = 0, binding = 2, r8ui) uniform readonly uimage3D mapImage;
 
 bool InBounds(int val)
 {
@@ -70,7 +65,7 @@ void TraceRay(inout vec3 pos, vec3 dir, out vec2 uv, out uint cell, out vec3 nor
             return;
         }
 
-        cell = uint(pcs.mapBuffer.cells[gridPos.z * MAP_SIZE * MAP_SIZE + gridPos.y * MAP_SIZE + gridPos.x]);
+        cell = imageLoad(mapImage, gridPos).x;
         if (cell != 0)
         {
             normal = -step * axis;
@@ -117,7 +112,7 @@ void SampleRay(vec3 pos, vec3 dir, out vec3 color, inout uint seed)
     vec3 normal;
     color = vec3(1);
 
-    for (uint i = 0; i < 3; i++)
+    for (uint i = 0; i < 2; i++)
     {
         TraceRay(pos, dir, uv, cell, normal);
         if (cell != 0)
@@ -160,7 +155,7 @@ void main()
             return;
         }
         vec3 totalBounceColor = vec3(0);
-        for (uint i = 0; i < 64; i++)
+        for (uint i = 0; i < 32; i++)
         {
             vec3 dir = RandomDirection(seed);
             vec3 cosDir = normalize(normal + dir);
@@ -168,7 +163,7 @@ void main()
             SampleRay(pos, cosDir, color, seed);
             totalBounceColor += color;
         }
-        vec3 hdr = texColor * totalBounceColor * PI / 64;
+        vec3 hdr = texColor * totalBounceColor * PI / 32;
         vec3 mapped = 1 - exp(-hdr * 2);
         outFragColor = vec4(mapped, 1);
     }
